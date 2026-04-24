@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import archiver from "archiver";
 import { getCarousel } from "@/lib/carousels";
 import { exportAllSlides } from "@/lib/export-slides";
+import { getBrand as getLegacyBrand } from "@/lib/brand";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +30,15 @@ export async function POST(
       carousel.aspectRatio
     );
 
-    const safeName = carousel.name.replace(/[^a-zA-Z0-9-_]/g, "_");
+    // Build export filename: {brandSlug}_{networkId}_{title}_{ratio}
+    const brand = await getLegacyBrand();
+    const brandSlug = brand.name
+      ? brand.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+      : "brand";
+    const networkSlug = carousel.networkId || "instagram";
+    const titleSlug = carousel.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const ratioSlug = carousel.aspectRatio.replace(":", "x");
+    const safeName = `${brandSlug}_${networkSlug}_${titleSlug}_${ratioSlug}`;
 
     // Single-image post: return PNG directly
     if (carousel.kind === "post") {

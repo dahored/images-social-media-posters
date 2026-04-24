@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, History } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,11 +124,18 @@ export default function AccountSettingsPage({ params }: PageProps) {
               </p>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-2 flex items-center gap-3">
               <Button onClick={handleSave} variant="accent" size="sm" disabled={saving}>
                 <Save className="h-3.5 w-3.5" />
                 {saving ? "Saving..." : "Save Changes"}
               </Button>
+              <Link
+                href={`/accounts/${accountId}/history`}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <History className="h-3.5 w-3.5" />
+                View publish history
+              </Link>
             </div>
           </div>
         </div>
