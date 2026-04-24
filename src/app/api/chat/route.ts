@@ -7,6 +7,8 @@ import { getBrand } from "@/lib/brand";
 import { getCarousel } from "@/lib/carousels";
 import { getPreset } from "@/lib/style-presets";
 import { getNetwork } from "@/lib/networks";
+import { getEffectiveBranding } from "@/lib/accounts";
+import type { BrandConfig } from "@/types/brand";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,6 +30,7 @@ export async function POST(request: NextRequest) {
     sessionId?: string;
     carouselId?: string;
     stylePresetId?: string;
+    accountId?: string;
   };
   try {
     body = await request.json();
@@ -35,7 +38,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { message, sessionId, carouselId, stylePresetId } = body;
+  const { message, sessionId, carouselId, stylePresetId, accountId } = body;
 
   if (
     !message ||
@@ -46,12 +49,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid message" }, { status: 400 });
   }
 
-  // Build dynamic system prompt with current brand + carousel + network + style preset context
-  const brand = await getBrand();
-  const carousel = carouselId ? await getCarousel(carouselId) : null;
-  const stylePreset = stylePresetId ? await getPreset(stylePresetId) : null;
-  const network = carousel?.networkId ? await getNetwork(carousel.networkId) : null;
-  const systemPrompt = buildSystemPrompt(brand, carousel, stylePreset, network);
+  // Build dynamic system prompt — prefer effective branding from account if provided
+  const [legacyBrand, carousel, stylePreset] = await Promise.all([
+    getBrand(),
+    carouselId ? getCarousel(carouselId) : Promise.resolve(null),
+    stylePresetId ? getPreset(stylePresetId) : Promise.resolve(null),
+  ]);
+
+  const effectiveBranding = accountId ? await getEffectiveBranding(accountId) : null;
+  const brandForPrompt: BrandConfig = effectiveBranding
+    ? {
+        ...legacyBrand,
+        name: effectiveBranding.name,
+        colors: effectiveBranding.colors,
+        fonts: effectiveBranding.fonts,
+        logoPath: effectiveBranding.logoPath,
+        styleKeywords: effectiveBranding.styleKeywords,
+      }
+    : legacyBrand;
+
+  const networkId = carousel?.networkId;
+  const network = networkId ? await getNetwork(networkId) : null;
+  const systemPrompt = buildSystemPrompt(brandForPrompt, carousel, stylePreset, network);
 
   const claudePath = getClaudePath();
   const abortController = new AbortController();

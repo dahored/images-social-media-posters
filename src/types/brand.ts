@@ -27,6 +27,22 @@ export interface BrandConfig {
   updatedAt: string;
 }
 
+// Multi-brand entity (used in Fase 3+)
+export interface Brand {
+  id: string;
+  name: string;
+  colors: BrandColors;
+  fonts: BrandFonts;
+  logoPath: string | null;
+  styleKeywords: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BrandsData {
+  brands: Brand[];
+}
+
 export const DEFAULT_BRAND: BrandConfig = {
   name: "",
   colors: {

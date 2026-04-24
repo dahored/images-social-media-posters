@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Settings, Layers, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AccountSelector } from "@/components/brand/AccountSelector";
 
 interface TopBarProps {
   title?: string;
@@ -67,7 +68,7 @@ export function TopBar({
                 setIsEditing(false);
               }
             }}
-            className="font-semibold text-sm bg-transparent border-b-2 border-accent outline-none py-0.5 min-w-[120px]"
+            className="font-semibold text-sm bg-transparent border-b-2 border-accent outline-none py-0.5 min-w-30"
           />
         ) : (
           <span
@@ -80,6 +81,7 @@ export function TopBar({
         )}
       </div>
       <div className="flex-1" />
+      <AccountSelector />
       <Link href="/settings/networks">
         <Button variant="ghost" size="icon" aria-label="Network catalog" title="Network catalog">
           <Globe className="h-4 w-4" />
