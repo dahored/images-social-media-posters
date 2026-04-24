@@ -64,11 +64,11 @@ export default function DashboardPage() {
   const [showCreatePostDialog, setShowCreatePostDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<"carousels" | "templates">("carousels");
 
-  const handleCreate = useCallback(async (name: string, aspectRatio: AspectRatio, kind: "carousel" | "post" = "carousel") => {
+  const handleCreate = useCallback(async (name: string, aspectRatio: AspectRatio, kind: "carousel" | "post" = "carousel", networkId?: string) => {
     const res = await fetch("/api/carousels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, aspectRatio, kind }),
+      body: JSON.stringify({ name, aspectRatio, kind, networkId }),
     });
     if (res.ok) {
       const carousel = await res.json();
@@ -93,7 +93,7 @@ export default function DashboardPage() {
       <CreateCarouselDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
-        onCreate={(name, ratio) => handleCreate(name, ratio, "carousel")}
+        onCreate={(name, ratio, networkId) => handleCreate(name, ratio, "carousel", networkId)}
       />
 
       <CreatePostDialog

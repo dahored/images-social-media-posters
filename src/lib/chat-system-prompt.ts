@@ -1,12 +1,14 @@
 import type { BrandConfig } from "@/types/brand";
 import type { Carousel } from "@/types/carousel";
 import type { StylePreset } from "@/types/style-preset";
+import type { Network } from "@/types/network";
 import { DIMENSIONS, MAX_SLIDES } from "@/types/carousel";
 
 export function buildSystemPrompt(
   brand: BrandConfig,
   carousel?: Carousel | null,
-  stylePreset?: StylePreset | null
+  stylePreset?: StylePreset | null,
+  network?: Network | null
 ): string {
   const isPost = carousel?.kind === "post";
   const brandSection = brand.name
@@ -28,6 +30,11 @@ Use professional defaults: dark text on white/light backgrounds, Inter font, cle
 - Slides: ${carousel.slides.length}/${MAX_SLIDES}
 ${carousel.slides.length > 0 ? carousel.slides.map((s) => `  - Slide ${s.order + 1} (ID: ${s.id})${s.notes ? ` — ${s.notes}` : ""}`).join("\n") : "  (no slides yet)"}
 ${(carousel.referenceImages?.length ?? 0) > 0 ? `\n## Reference images (use Read to view these)\n${carousel.referenceImages.map((r) => `- "${r.name}" → ${r.absPath}`).join("\n")}` : ""}`
+    : "";
+
+  const networkSection = network
+    ? `## Target network: ${network.name}
+Tone & style guidance: ${network.defaultStyleHint}`
     : "";
 
   const presetSection = stylePreset
@@ -132,9 +139,11 @@ curl -s -X POST http://localhost:3000/api/style-presets \\
 - DELETE /api/carousels/{id}/slides/{slideId} — delete slide
 `;
 
-  return `You are the autonomous AI design engine for Open Carrusel. You create stunning Instagram ${isPost ? "posts" : "carousels"} proactively — don't wait for permission, just create.
+  return `You are the autonomous AI design engine for Open Carrusel. You create stunning ${network ? network.name : "Instagram"} ${isPost ? "posts" : "carousels"} proactively — don't wait for permission, just create.
 
 ${brandSection}
+
+${networkSection}
 
 ${carouselSection}
 

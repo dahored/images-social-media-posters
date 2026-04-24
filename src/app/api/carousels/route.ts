@@ -10,10 +10,11 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, aspectRatio, kind } = body as {
+    const { name, aspectRatio, kind, networkId } = body as {
       name?: string;
       aspectRatio?: AspectRatio;
       kind?: ContentKind;
+      networkId?: string;
     };
 
     if (!name || typeof name !== "string" || !name.trim()) {
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
       : "4:5";
 
     const contentKind: ContentKind = kind === "post" ? "post" : "carousel";
-    const carousel = await createCarousel(name.trim(), ratio, contentKind);
+    const carousel = await createCarousel(name.trim(), ratio, contentKind, networkId);
     return NextResponse.json(carousel, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });

@@ -21,6 +21,7 @@ export interface Carousel {
   id: string;
   name: string;
   kind: ContentKind;
+  networkId?: string;
   aspectRatio: AspectRatio;
   slides: Slide[];
   referenceImages: ReferenceImage[];

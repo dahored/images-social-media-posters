@@ -26,13 +26,15 @@ export async function getCarousel(id: string): Promise<Carousel | null> {
 export async function createCarousel(
   name: string,
   aspectRatio: AspectRatio,
-  kind: ContentKind = "carousel"
+  kind: ContentKind = "carousel",
+  networkId?: string
 ): Promise<Carousel> {
   const data = await load();
   const carousel: Carousel = {
     id: generateId(),
     name,
     kind,
+    networkId,
     aspectRatio,
     slides: [],
     referenceImages: [],

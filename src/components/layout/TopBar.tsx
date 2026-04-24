@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Settings, Layers } from "lucide-react";
+import { ArrowLeft, Settings, Layers, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface TopBarProps {
@@ -80,12 +80,17 @@ export function TopBar({
         )}
       </div>
       <div className="flex-1" />
+      <Link href="/settings/networks">
+        <Button variant="ghost" size="icon" aria-label="Network catalog" title="Network catalog">
+          <Globe className="h-4 w-4" />
+        </Button>
+      </Link>
       {onSettingsClick && (
         <Button
           variant="ghost"
           size="icon"
           onClick={onSettingsClick}
-          aria-label="Settings"
+          aria-label="Brand settings"
         >
           <Settings className="h-4 w-4" />
         </Button>
