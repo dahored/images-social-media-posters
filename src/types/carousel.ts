@@ -1,4 +1,5 @@
 export type AspectRatio = "1:1" | "4:5" | "9:16";
+export type ContentKind = "post" | "carousel";
 
 export interface Slide {
   id: string;
@@ -19,6 +20,7 @@ export interface ReferenceImage {
 export interface Carousel {
   id: string;
   name: string;
+  kind: ContentKind;
   aspectRatio: AspectRatio;
   slides: Slide[];
   referenceImages: ReferenceImage[];

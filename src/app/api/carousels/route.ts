@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { listCarousels, createCarousel } from "@/lib/carousels";
-import type { AspectRatio } from "@/types/carousel";
+import type { AspectRatio, ContentKind } from "@/types/carousel";
 
 export async function GET() {
   const carousels = await listCarousels();
@@ -10,9 +10,10 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, aspectRatio } = body as {
+    const { name, aspectRatio, kind } = body as {
       name?: string;
       aspectRatio?: AspectRatio;
+      kind?: ContentKind;
     };
 
     if (!name || typeof name !== "string" || !name.trim()) {
@@ -27,7 +28,8 @@ export async function POST(request: Request) {
       ? (aspectRatio as AspectRatio)
       : "4:5";
 
-    const carousel = await createCarousel(name.trim(), ratio);
+    const contentKind: ContentKind = kind === "post" ? "post" : "carousel";
+    const carousel = await createCarousel(name.trim(), ratio, contentKind);
     return NextResponse.json(carousel, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });

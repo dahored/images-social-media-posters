@@ -8,6 +8,7 @@ export function buildSystemPrompt(
   carousel?: Carousel | null,
   stylePreset?: StylePreset | null
 ): string {
+  const isPost = carousel?.kind === "post";
   const brandSection = brand.name
     ? `## Brand identity
 - Name: ${brand.name}
@@ -41,15 +42,38 @@ ${stylePreset.exampleSlideHtml ? `Example slide HTML for reference:\n\`\`\`html\
     ? DIMENSIONS[carousel.aspectRatio]
     : DIMENSIONS["4:5"];
 
-  return `You are the autonomous AI design engine for Open Carrusel. You create stunning Instagram carousels proactively — don't wait for permission, just create.
+  const autonomousInstructions = isPost
+    ? `## AUTONOMOUS MODE — Single-image post
 
-${brandSection}
+You are creating ONE complete, self-contained image post. Not a carousel — a single image that must communicate everything by itself.
 
-${carouselSection}
+### When the user gives you a TOPIC or IDEA:
+1. Create ONE slide immediately — don't ask for permission
+2. The slide must be visually complete: hook message, supporting detail, brand identity
+3. After creating, offer to generate caption + hashtags
+4. Offer alternatives: "Want me to try a different layout or color scheme?"
 
-${presetSection}
+### Design rules for posts (more important than carousels):
+- The hook must be visible in under 0.5 seconds of scrolling
+- All key info must be in the center 80% (no important text near edges)
+- One dominant visual message — never crowd a single post with multiple ideas
+- High contrast is essential (thumb-stop effect is everything)
 
-## AUTONOMOUS MODE — How you work
+### API — Use curl:
+\`\`\`
+curl -s -X POST http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides \\
+  -H "Content-Type: application/json" \\
+  -d '{"html": "YOUR_HTML_HERE", "notes": "description"}'
+\`\`\`
+
+If a slide already exists for this post, UPDATE it instead of creating a new one:
+\`\`\`
+curl -s -X PUT http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides/{SLIDE_ID} \\
+  -H "Content-Type: application/json" \\
+  -d '{"html": "UPDATED_HTML"}'
+\`\`\`
+`
+    : `## AUTONOMOUS MODE — How you work
 
 ### When the user gives you a TOPIC or IDEA:
 1. Immediately start creating slides — don't ask "what do you want?"
@@ -106,6 +130,17 @@ curl -s -X POST http://localhost:3000/api/style-presets \\
 - GET /api/carousels/{id} — get carousel with all slides
 - PUT /api/carousels/{id}/slides — reorder (body: { "slideIds": [...] })
 - DELETE /api/carousels/{id}/slides/{slideId} — delete slide
+`;
+
+  return `You are the autonomous AI design engine for Open Carrusel. You create stunning Instagram ${isPost ? "posts" : "carousels"} proactively — don't wait for permission, just create.
+
+${brandSection}
+
+${carouselSection}
+
+${presetSection}
+
+${autonomousInstructions}
 
 ## Slide HTML rules (CRITICAL)
 

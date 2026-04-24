@@ -1,6 +1,6 @@
 import { readDataSafe, writeData } from "./data";
 import { generateId, now } from "./utils";
-import type { Carousel, CarouselsData, Slide, AspectRatio, ReferenceImage } from "@/types/carousel";
+import type { Carousel, CarouselsData, Slide, AspectRatio, ReferenceImage, ContentKind } from "@/types/carousel";
 import { MAX_SLIDES, MAX_VERSIONS } from "@/types/carousel";
 
 const FILE = "carousels.json";
@@ -25,12 +25,14 @@ export async function getCarousel(id: string): Promise<Carousel | null> {
 
 export async function createCarousel(
   name: string,
-  aspectRatio: AspectRatio
+  aspectRatio: AspectRatio,
+  kind: ContentKind = "carousel"
 ): Promise<Carousel> {
   const data = await load();
   const carousel: Carousel = {
     id: generateId(),
     name,
+    kind,
     aspectRatio,
     slides: [],
     referenceImages: [],
@@ -102,7 +104,8 @@ export async function addSlide(
   const data = await load();
   const carousel = data.carousels.find((c) => c.id === carouselId);
   if (!carousel) return null;
-  if (carousel.slides.length >= MAX_SLIDES) return null;
+  const slideLimit = carousel.kind === "post" ? 1 : MAX_SLIDES;
+  if (carousel.slides.length >= slideLimit) return null;
 
   const slide: Slide = {
     id: generateId(),

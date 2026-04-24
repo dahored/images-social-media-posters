@@ -313,6 +313,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
             <ExportButton
               carouselId={carousel.id}
               slideCount={carousel.slides.length}
+              isPost={carousel.kind === "post"}
             />
           </div>
 
@@ -333,18 +334,20 @@ export default function CarouselEditorPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Filmstrip */}
-      <SlideFilmstrip
-        slides={carousel.slides}
-        aspectRatio={carousel.aspectRatio}
-        activeIndex={activeSlide}
-        onActiveChange={setActiveSlide}
-        onDeleteSlide={handleDeleteSlide}
-        onUndoSlide={handleUndoSlide}
-        onAddSlideRequest={handleAddSlideRequest}
-        onReorderSlides={handleReorderSlides}
-        isGenerating={isGenerating}
-      />
+      {/* Filmstrip — hidden for single-image posts */}
+      {carousel.kind !== "post" && (
+        <SlideFilmstrip
+          slides={carousel.slides}
+          aspectRatio={carousel.aspectRatio}
+          activeIndex={activeSlide}
+          onActiveChange={setActiveSlide}
+          onDeleteSlide={handleDeleteSlide}
+          onUndoSlide={handleUndoSlide}
+          onAddSlideRequest={handleAddSlideRequest}
+          onReorderSlides={handleReorderSlides}
+          isGenerating={isGenerating}
+        />
+      )}
     </div>
   );
 }

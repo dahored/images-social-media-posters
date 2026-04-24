@@ -29,7 +29,20 @@ export async function POST(
       carousel.aspectRatio
     );
 
-    // Build ZIP archive and collect all data
+    const safeName = carousel.name.replace(/[^a-zA-Z0-9-_]/g, "_");
+
+    // Single-image post: return PNG directly
+    if (carousel.kind === "post") {
+      const { buffer } = pngBuffers[0];
+      return new Response(new Uint8Array(buffer), {
+        headers: {
+          "Content-Type": "image/png",
+          "Content-Disposition": `attachment; filename="post-${safeName}.png"`,
+        },
+      });
+    }
+
+    // Carousel: build ZIP archive
     const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
       const archive = archiver("zip", { zlib: { level: 5 } });
       const chunks: Buffer[] = [];
@@ -60,7 +73,7 @@ export async function POST(
     return new Response(new Uint8Array(zipBuffer), {
       headers: {
         "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="carousel-${carousel.name.replace(/[^a-zA-Z0-9-_]/g, "_")}.zip"`,
+        "Content-Disposition": `attachment; filename="carousel-${safeName}.zip"`,
       },
     });
   } catch (error) {

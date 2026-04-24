@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 interface ExportButtonProps {
   carouselId: string;
   slideCount: number;
+  isPost?: boolean;
 }
 
-export function ExportButton({ carouselId, slideCount }: ExportButtonProps) {
+export function ExportButton({ carouselId, slideCount, isPost = false }: ExportButtonProps) {
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [done, setDone] = useState(false);
@@ -69,12 +70,12 @@ export function ExportButton({ carouselId, slideCount }: ExportButtonProps) {
           }
         }
       } else {
-        // Direct ZIP download
+        // Direct download (ZIP for carousels, PNG for posts)
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `carousel-${carouselId}.zip`;
+        a.download = isPost ? `post-${carouselId}.png` : `carousel-${carouselId}.zip`;
         a.click();
         URL.revokeObjectURL(url);
         setDone(true);
@@ -113,7 +114,7 @@ export function ExportButton({ carouselId, slideCount }: ExportButtonProps) {
         ) : (
           <>
             <Download className="h-4 w-4" />
-            <span>Export PNG</span>
+            <span>{isPost ? "Export PNG" : "Export ZIP"}</span>
           </>
         )}
       </span>

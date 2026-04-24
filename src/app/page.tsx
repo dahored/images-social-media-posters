@@ -2,16 +2,17 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Layers, Calendar, SlidersHorizontal, Trash2, Copy } from "lucide-react";
+import { Plus, Layers, Calendar, SlidersHorizontal, Trash2, Copy, Image } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CreateCarouselDialog } from "@/components/ui/create-carousel-dialog";
+import { CreatePostDialog } from "@/components/ui/create-post-dialog";
 import { BrandSetup } from "@/components/brand/BrandSetup";
 import { SlideRenderer } from "@/components/editor/SlideRenderer";
 import { TemplateGallery } from "@/components/templates/TemplateGallery";
-import type { Carousel } from "@/types/carousel";
+import type { Carousel, AspectRatio } from "@/types/carousel";
 import type { BrandConfig } from "@/types/brand";
 
 export default function DashboardPage() {
@@ -60,16 +61,14 @@ export default function DashboardPage() {
   }, []);
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showCreatePostDialog, setShowCreatePostDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<"carousels" | "templates">("carousels");
 
-  const handleCreate = useCallback(async (name: string, aspectRatio: string) => {
+  const handleCreate = useCallback(async (name: string, aspectRatio: AspectRatio, kind: "carousel" | "post" = "carousel") => {
     const res = await fetch("/api/carousels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        aspectRatio,
-      }),
+      body: JSON.stringify({ name, aspectRatio, kind }),
     });
     if (res.ok) {
       const carousel = await res.json();
@@ -94,7 +93,13 @@ export default function DashboardPage() {
       <CreateCarouselDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
-        onCreate={handleCreate}
+        onCreate={(name, ratio) => handleCreate(name, ratio, "carousel")}
+      />
+
+      <CreatePostDialog
+        open={showCreatePostDialog}
+        onOpenChange={setShowCreatePostDialog}
+        onCreate={(name, ratio) => handleCreate(name, ratio, "post")}
       />
 
       <BrandSetup
@@ -118,10 +123,16 @@ export default function DashboardPage() {
                 Create Instagram carousels with AI
               </p>
             </div>
-            <Button onClick={() => setShowCreateDialog(true)} variant="accent">
-              <Plus className="h-4 w-4" />
-              New Carousel
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setShowCreatePostDialog(true)} variant="outline" size="sm">
+                <Image className="h-4 w-4" />
+                New Post
+              </Button>
+              <Button onClick={() => setShowCreateDialog(true)} variant="accent">
+                <Plus className="h-4 w-4" />
+                New Carousel
+              </Button>
+            </div>
           </div>
 
           {/* Tabs */}
@@ -169,10 +180,16 @@ export default function DashboardPage() {
                 Create your first Instagram carousel. Our AI assistant will
                 help you design beautiful slides in seconds.
               </p>
-              <Button onClick={() => setShowCreateDialog(true)} variant="accent" size="lg">
-                <Plus className="h-5 w-5" />
-                Create Your First Carousel
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button onClick={() => setShowCreatePostDialog(true)} variant="outline" size="lg">
+                  <Image className="h-5 w-5" />
+                  New Post
+                </Button>
+                <Button onClick={() => setShowCreateDialog(true)} variant="accent" size="lg">
+                  <Plus className="h-5 w-5" />
+                  New Carousel
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="oc-stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -222,8 +239,18 @@ export default function DashboardPage() {
                     {carousel.name}
                   </h3>
                   <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                    {carousel.kind === "post" ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        <Image className="h-2.5 w-2.5 mr-1" />
+                        Post
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-[10px]">
+                        <SlidersHorizontal className="h-2.5 w-2.5 mr-1" />
+                        Carousel
+                      </Badge>
+                    )}
                     <Badge variant="secondary" className="text-[10px]">
-                      <SlidersHorizontal className="h-2.5 w-2.5 mr-1" />
                       {carousel.aspectRatio}
                     </Badge>
                     <span className="flex items-center gap-1">
