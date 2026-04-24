@@ -1,6 +1,13 @@
 export type AspectRatio = "1:1" | "4:5" | "9:16";
 export type ContentKind = "post" | "carousel";
 
+export interface PublishHistoryEntry {
+  destination: string;
+  timestamp: string;
+  success: boolean;
+  error?: string;
+}
+
 export interface Slide {
   id: string;
   html: string;
@@ -27,6 +34,7 @@ export interface Carousel {
   referenceImages: ReferenceImage[];
   caption?: string;
   hashtags?: string[];
+  publishHistory?: PublishHistoryEntry[];
   chatSessionId: string | null;
   isTemplate: boolean;
   tags: string[];

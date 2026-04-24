@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Trash2, Grid3X3, Bookmark, Maximize2 } from "lucide-react";
+import { PublishButton } from "@/components/editor/PublishButton";
 import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -310,6 +311,11 @@ export default function CarouselEditorPage({ params }: PageProps) {
             >
               {chatOpen ? "Hide Chat" : "Show Chat"}
             </button>
+            <PublishButton
+              carouselId={carousel.id}
+              slideCount={carousel.slides.length}
+              isPost={carousel.kind === "post"}
+            />
             <ExportButton
               carouselId={carousel.id}
               slideCount={carousel.slides.length}
