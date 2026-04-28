@@ -4,29 +4,30 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Bookmark } from "lucide-react";
 import { TemplateCard } from "./TemplateCard";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useI18n } from "@/lib/i18n/context";
 import type { Template, TemplateScope } from "@/types/template";
 import { cn } from "@/lib/utils";
 
-const TABS: { key: TemplateScope | "all"; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "global", label: "Global" },
-  { key: "brand", label: "Brand" },
-  { key: "account", label: "Account" },
-];
-
 export function TemplateGallery() {
+  const { t } = useI18n();
   const router = useRouter();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TemplateScope | "all">("all");
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
+
+  const TABS: { key: TemplateScope | "all"; label: string }[] = [
+    { key: "all", label: t("all") },
+    { key: "global", label: t("tabGlobal") },
+    { key: "brand", label: t("brands") },
+    { key: "account", label: t("accounts") },
+  ];
 
   useEffect(() => {
     fetch("/api/templates")
       .then((r) => r.json())
-      .then((data) => {
-        setTemplates(data.templates || []);
-        setLoading(false);
-      })
+      .then((data) => { setTemplates(data.templates || []); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
 
@@ -41,16 +42,20 @@ export function TemplateGallery() {
     [router]
   );
 
-  const handleDelete = useCallback(async (templateId: string) => {
-    const res = await fetch(`/api/templates/${templateId}`, { method: "DELETE" });
-    if (res.ok) {
-      setTemplates((prev) => prev.filter((t) => t.id !== templateId));
-    }
+  const confirmAndDelete = useCallback((templateId: string, name: string) => {
+    setConfirmDelete({ id: templateId, name });
   }, []);
+
+  const handleDelete = useCallback(async () => {
+    if (!confirmDelete) return;
+    const res = await fetch(`/api/templates/${confirmDelete.id}`, { method: "DELETE" });
+    if (res.ok) setTemplates((prev) => prev.filter((t) => t.id !== confirmDelete.id));
+    setConfirmDelete(null);
+  }, [confirmDelete]);
 
   const filtered = activeTab === "all"
     ? templates
-    : templates.filter((t) => (t.scope || "global") === activeTab);
+    : templates.filter((tmpl) => (tmpl.scope || "global") === activeTab);
 
   if (loading) {
     return (
@@ -62,14 +67,23 @@ export function TemplateGallery() {
 
   return (
     <div>
-      {/* Scope tabs */}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onOpenChange={(open) => { if (!open) setConfirmDelete(null); }}
+        title={t("deleteTemplateConfirm", { name: confirmDelete?.name ?? "" })}
+        description={t("deleteTemplateDesc")}
+        confirmLabel={t("delete")}
+        variant="destructive"
+        onConfirm={handleDelete}
+      />
+
       <div className="flex gap-1 mb-4 border-b border-border">
         {TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={cn(
-              "px-3 py-1.5 text-xs font-medium border-b-2 transition-colors",
+              "px-3 py-1.5 text-xs font-medium border-b-2 transition-colors cursor-pointer",
               activeTab === tab.key
                 ? "border-accent text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -84,12 +98,10 @@ export function TemplateGallery() {
         <div className="text-center py-12">
           <Bookmark className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">
-            {templates.length === 0 ? "No templates saved yet" : "No templates in this scope"}
+            {templates.length === 0 ? t("noTemplates") : t("noTemplatesScope")}
           </p>
           {templates.length === 0 && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Save a carousel as a template to reuse it later
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">{t("saveToReuse")}</p>
           )}
         </div>
       ) : (
@@ -99,7 +111,7 @@ export function TemplateGallery() {
               key={template.id}
               template={template}
               onUse={handleUse}
-              onDelete={handleDelete}
+              onDelete={(id) => confirmAndDelete(id, template.name)}
             />
           ))}
         </div>

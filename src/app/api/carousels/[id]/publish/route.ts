@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { getCarousel, updateCarousel } from "@/lib/carousels";
 import { exportAllSlides } from "@/lib/export-slides";
 import { sendPhoto, sendMediaGroup, buildCaption, isTelegramConfigured, getDefaultChatId } from "@/lib/telegram";
-import { getAccount } from "@/lib/accounts";
+import { getAccount, getEffectiveBranding } from "@/lib/accounts";
 import type { PublishHistoryEntry } from "@/types/carousel";
+import type { LogoConfig } from "@/lib/slide-html";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,7 +56,23 @@ export async function POST(
     }
 
     try {
-      const pngBuffers = await exportAllSlides(carousel.slides, carousel.aspectRatio);
+      // Compute logo config
+      const branding = accountId ? await getEffectiveBranding(accountId) : null;
+      const activeTheme = carousel.brandingOverride?.theme ?? "dark";
+      const logoPath = branding
+        ? (activeTheme === "dark"
+            ? (branding.logoPathLight ?? branding.logoPath ?? null)
+            : (branding.logoPathDark ?? branding.logoPath ?? null))
+        : null;
+      const logoConfig: LogoConfig | undefined = logoPath
+        ? {
+            path: logoPath,
+            position: carousel.brandingOverride?.logoPosition ?? branding?.logoPosition ?? "bottom-center",
+            height: carousel.brandingOverride?.logoHeight ?? branding?.logoHeight ?? 72,
+          }
+        : undefined;
+
+      const pngBuffers = await exportAllSlides(carousel.slides, carousel.aspectRatio, logoConfig);
       const buffers = pngBuffers.map((p) => p.buffer);
       const caption = buildCaption(carousel.caption, carousel.hashtags);
 

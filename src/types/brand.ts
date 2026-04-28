@@ -16,12 +16,19 @@ export interface CustomFont {
   path: string;
 }
 
+export type LogoPosition = "bottom-left" | "bottom-center" | "bottom-right";
+
 export interface BrandConfig {
   name: string;
   colors: BrandColors;
+  colorsLight?: BrandColors;
   fonts: BrandFonts;
   customFonts: CustomFont[];
   logoPath: string | null;
+  logoPathDark?: string | null;
+  logoPathLight?: string | null;
+  logoPosition?: LogoPosition;
+  logoHeight?: number;
   styleKeywords: string[];
   createdAt: string;
   updatedAt: string;
@@ -32,8 +39,13 @@ export interface Brand {
   id: string;
   name: string;
   colors: BrandColors;
+  colorsLight?: BrandColors;
   fonts: BrandFonts;
   logoPath: string | null;
+  logoPathDark?: string | null;
+  logoPathLight?: string | null;
+  logoPosition?: LogoPosition;
+  logoHeight?: number;
   styleKeywords: string[];
   createdAt: string;
   updatedAt: string;
@@ -48,7 +60,7 @@ export const DEFAULT_BRAND: BrandConfig = {
   colors: {
     primary: "#1a1a2e",
     secondary: "#16213e",
-    accent: "#e94560",
+    accent: "#7f22fe",
     background: "#ffffff",
     surface: "#f5f5f5",
   },

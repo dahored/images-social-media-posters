@@ -61,7 +61,7 @@ export function CreateCarouselDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay data-oc-overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
-        <Dialog.Content data-oc-dialog className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface border border-border p-6 shadow-2xl">
+        <Dialog.Content data-oc-dialog className="fixed left-1/2 top-1/2 z-50 w-full max-w-md rounded-xl bg-surface border border-border p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
               <div className="h-9 w-9 rounded-lg bg-accent/10 flex items-center justify-center">
@@ -107,7 +107,7 @@ export function CreateCarouselDialog({
                     <button
                       key={n.id}
                       onClick={() => { setSelectedNetworkId(n.id); setSelectedFormatId(""); }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
                         selectedNetworkId === n.id
                           ? "bg-foreground text-background border-foreground"
                           : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
@@ -130,7 +130,7 @@ export function CreateCarouselDialog({
                     <button
                       key={f.id}
                       onClick={() => setSelectedFormatId(f.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                      className={`px-3 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
                         (selectedFormatId === f.id || (!selectedFormatId && f.id === formats[0]?.id))
                           ? "bg-foreground text-background border-foreground"
                           : "border-border text-muted-foreground hover:text-foreground"
@@ -159,7 +159,7 @@ export function CreateCarouselDialog({
                             setAspectRatio(ratio);
                           }
                         }}
-                        className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                        className={`px-3 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
                           aspectRatio === r.ratio
                             ? "bg-foreground text-background border-foreground"
                             : "border-border text-muted-foreground hover:text-foreground"

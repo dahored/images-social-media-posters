@@ -59,7 +59,7 @@ export default function AccountHistoryPage({ params }: PageProps) {
                 <button
                   key={d}
                   onClick={() => setFilterDest(d)}
-                  className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors capitalize ${
+                  className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors capitalize cursor-pointer ${
                     filterDest === d
                       ? "border-accent text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground"

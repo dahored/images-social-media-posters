@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2, Undo2, GripVertical } from "lucide-react";
+import { Plus, Trash2, Undo2 } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -17,7 +17,9 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { SlideRenderer } from "./SlideRenderer";
+import { useI18n } from "@/lib/i18n/context";
 import type { Slide, AspectRatio } from "@/types/carousel";
+import type { LogoConfig } from "@/lib/slide-html";
 import { DIMENSIONS, MAX_SLIDES } from "@/types/carousel";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +33,7 @@ interface SlideFilmstripProps {
   onAddSlideRequest?: () => void;
   onReorderSlides?: (slideIds: string[]) => void;
   isGenerating?: boolean;
+  logoConfig?: LogoConfig;
 }
 
 function SortableSlideThumb({
@@ -43,6 +46,7 @@ function SortableSlideThumb({
   onSelect,
   onDelete,
   onUndo,
+  logoConfig,
 }: {
   slide: Slide;
   index: number;
@@ -53,7 +57,9 @@ function SortableSlideThumb({
   onSelect: () => void;
   onDelete?: () => void;
   onUndo?: () => void;
+  logoConfig?: LogoConfig;
 }) {
+  const { t } = useI18n();
   const {
     attributes,
     listeners,
@@ -74,32 +80,29 @@ function SortableSlideThumb({
     <div
       ref={setNodeRef}
       style={style}
-      className={cn("oc-enter-pop relative group shrink-0", isDragging && "!opacity-50")}
+      {...attributes}
+      {...listeners}
+      className={cn(
+        "oc-enter-pop relative group shrink-0 cursor-grab active:cursor-grabbing",
+        isDragging && "opacity-40!"
+      )}
     >
-      {/* Drag handle */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute -left-1 top-1/2 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
-      >
-        <GripVertical className="h-3 w-3 text-muted-foreground" />
-      </div>
-
       <button
         onClick={onSelect}
         className={cn(
-          "oc-press block rounded-lg overflow-hidden transition-[border-color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] border-2",
+          "block rounded-lg overflow-hidden transition-[border-color,box-shadow] duration-200 border-2",
           isActive
             ? "border-accent shadow-md ring-2 ring-accent/20"
             : "border-border hover:border-muted-foreground/50"
         )}
         style={{ width: thumbWidth, height: thumbHeight }}
-        aria-label={`Select slide ${index + 1}`}
+        aria-label={t("selectSlide", { index: index + 1 })}
       >
         <SlideRenderer
           html={slide.html}
           aspectRatio={aspectRatio}
           className="w-full h-full"
+          logoConfig={logoConfig}
         />
       </button>
 
@@ -114,7 +117,7 @@ function SortableSlideThumb({
               e.stopPropagation();
               onUndo();
             }}
-            aria-label="Undo last change"
+            aria-label={t("undoLastChange")}
           >
             <Undo2 className="h-2.5 w-2.5" />
           </Button>
@@ -128,7 +131,7 @@ function SortableSlideThumb({
               e.stopPropagation();
               onDelete();
             }}
-            aria-label={`Delete slide ${index + 1}`}
+            aria-label={t("deleteSlide", { index: index + 1 })}
           >
             <Trash2 className="h-2.5 w-2.5" />
           </Button>
@@ -153,14 +156,16 @@ export function SlideFilmstrip({
   onAddSlideRequest,
   onReorderSlides,
   isGenerating,
+  logoConfig,
 }: SlideFilmstripProps) {
+  const { t } = useI18n();
   const { width: slideW, height: slideH } = DIMENSIONS[aspectRatio];
   const thumbHeight = 80;
   const thumbWidth = Math.round(thumbHeight * (slideW / slideH));
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { delay: 200, tolerance: 5 },
+      activationConstraint: { distance: 6 },
     })
   );
 
@@ -172,14 +177,12 @@ export function SlideFilmstrip({
     const newIndex = slides.findIndex((s) => s.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
 
-    // Build new order
     const newSlides = [...slides];
     const [moved] = newSlides.splice(oldIndex, 1);
     newSlides.splice(newIndex, 0, moved);
 
     onReorderSlides?.(newSlides.map((s) => s.id));
 
-    // Update active index to follow the selected slide
     if (activeIndex === oldIndex) {
       onActiveChange(newIndex);
     } else if (activeIndex > oldIndex && activeIndex <= newIndex) {
@@ -213,6 +216,7 @@ export function SlideFilmstrip({
                 onSelect={() => onActiveChange(index)}
                 onDelete={onDeleteSlide ? () => onDeleteSlide(slide.id) : undefined}
                 onUndo={onUndoSlide ? () => onUndoSlide(slide.id) : undefined}
+                logoConfig={logoConfig}
               />
             ))}
           </SortableContext>
@@ -225,7 +229,7 @@ export function SlideFilmstrip({
           >
             <div className="flex flex-col items-center gap-1">
               <div className="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-              <span className="text-[8px] text-accent font-medium">Creating</span>
+              <span className="text-[8px] text-accent font-medium">{t("creating")}</span>
             </div>
           </div>
         )}
@@ -235,7 +239,7 @@ export function SlideFilmstrip({
             onClick={onAddSlideRequest}
             className="shrink-0 rounded-lg border-2 border-dashed border-border flex items-center justify-center hover:border-muted-foreground/50 hover:bg-muted/50 transition-colors cursor-pointer"
             style={{ width: thumbWidth, height: thumbHeight }}
-            aria-label="Add slide via AI"
+            aria-label={t("addSlideViaAI")}
           >
             <Plus className="h-4 w-4 text-muted-foreground" />
           </button>

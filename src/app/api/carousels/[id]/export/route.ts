@@ -3,6 +3,8 @@ import archiver from "archiver";
 import { getCarousel } from "@/lib/carousels";
 import { exportAllSlides } from "@/lib/export-slides";
 import { getBrand as getLegacyBrand } from "@/lib/brand";
+import { getEffectiveBranding } from "@/lib/accounts";
+import type { LogoConfig } from "@/lib/slide-html";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,10 +26,28 @@ export async function POST(
   }
 
   try {
+    // Compute logo config from effective branding
+    const accountId = carousel.accountId;
+    const branding = accountId ? await getEffectiveBranding(accountId) : null;
+    const activeTheme = carousel.brandingOverride?.theme ?? "dark";
+    const logoPath = branding
+      ? (activeTheme === "dark"
+          ? (branding.logoPathLight ?? branding.logoPath ?? null)
+          : (branding.logoPathDark ?? branding.logoPath ?? null))
+      : null;
+    const logoConfig: LogoConfig | undefined = logoPath
+      ? {
+          path: logoPath,
+          position: carousel.brandingOverride?.logoPosition ?? branding?.logoPosition ?? "bottom-center",
+          height: carousel.brandingOverride?.logoHeight ?? branding?.logoHeight ?? 72,
+        }
+      : undefined;
+
     // Export all slides to PNG buffers
     const pngBuffers = await exportAllSlides(
       carousel.slides,
-      carousel.aspectRatio
+      carousel.aspectRatio,
+      logoConfig
     );
 
     // Build export filename: {brandSlug}_{networkId}_{title}_{ratio}

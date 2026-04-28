@@ -5,7 +5,8 @@ import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { ReferenceImages } from "./ReferenceImages";
 import { AlertCircle, Plug } from "lucide-react";
-import type { ReferenceImage } from "@/types/carousel";
+import { useI18n } from "@/lib/i18n/context";
+import type { ReferenceImage, AspectRatio } from "@/types/carousel";
 
 interface Message {
   id: string;
@@ -17,19 +18,34 @@ interface ChatPanelProps {
   carouselId: string;
   referenceImages?: ReferenceImage[];
   claudeAvailable: boolean;
+  isPost?: boolean;
   onStreamStart?: () => void;
   onStreamEnd?: () => void;
   chatInputRef?: React.RefObject<HTMLTextAreaElement | null>;
+  autoSendMessage?: string;
+  onAutoSendConsumed?: () => void;
+  // Current values from the carousel (used to initialize local state)
+  theme?: "dark" | "light";
+  aspectRatio?: AspectRatio;
+  // Called only when the user sends a message — not on every button click
+  onCommitChanges?: (ratio: AspectRatio, theme: "dark" | "light") => Promise<void>;
 }
 
 export function ChatPanel({
   carouselId,
   claudeAvailable,
   referenceImages = [],
+  isPost = false,
   onStreamStart,
   onStreamEnd,
   chatInputRef,
+  autoSendMessage,
+  onAutoSendConsumed,
+  theme,
+  aspectRatio,
+  onCommitChanges,
 }: ChatPanelProps) {
+  const { t } = useI18n();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -37,7 +53,14 @@ export function ChatPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Load session ID and chat history from localStorage
+  // Local pending state — buttons update these, nothing changes in preview until send
+  const [pendingRatio, setPendingRatio] = useState<AspectRatio>(aspectRatio ?? "4:5");
+  const [pendingTheme, setPendingTheme] = useState<"dark" | "light">(theme ?? "dark");
+
+  // Sync if parent initializes async (carousel loads after mount)
+  useEffect(() => { if (aspectRatio) setPendingRatio(aspectRatio); }, [aspectRatio]);
+  useEffect(() => { if (theme) setPendingTheme(theme); }, [theme]);
+
   useEffect(() => {
     const storedSession = localStorage.getItem(`chat-session-${carouselId}`);
     if (storedSession) setSessionId(storedSession);
@@ -49,7 +72,6 @@ export function ChatPanel({
     }
   }, [carouselId]);
 
-  // Persist messages to localStorage
   const persistMessages = useCallback(
     (msgs: Message[]) => {
       try {
@@ -72,7 +94,6 @@ export function ChatPanel({
     abortRef.current?.abort();
   }, []);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -83,23 +104,20 @@ export function ChatPanel({
     async (message: string) => {
       if (isStreaming) return;
       setError(null);
+
+      // Commit pending ratio/theme to the carousel before sending
+      if (onCommitChanges) {
+        await onCommitChanges(pendingRatio, pendingTheme);
+      }
+
       setIsStreaming(true);
       onStreamStart?.();
 
-      // Add user message
-      const userMsg: Message = {
-        id: crypto.randomUUID(),
-        role: "user",
-        content: message,
-      };
+      const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: message };
       setMessages((prev) => [...prev, userMsg]);
 
-      // Add empty assistant message for streaming
       const assistantId = crypto.randomUUID();
-      setMessages((prev) => [
-        ...prev,
-        { id: assistantId, role: "assistant", content: "" },
-      ]);
+      setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
 
       abortRef.current = new AbortController();
 
@@ -111,15 +129,16 @@ export function ChatPanel({
             message,
             sessionId,
             carouselId,
+            accountId: typeof window !== "undefined"
+              ? localStorage.getItem("activeAccountId") ?? undefined
+              : undefined,
           }),
           signal: abortRef.current.signal,
         });
 
         if (!response.ok) {
           const err = await response.json().catch(() => ({}));
-          throw new Error(
-            (err as { error?: string }).error || "Failed to connect to AI"
-          );
+          throw new Error((err as { error?: string }).error || "Failed to connect to AI");
         }
 
         const reader = response.body?.getReader();
@@ -144,48 +163,19 @@ export function ChatPanel({
                 if (data.type === "token" && typeof data.text === "string") {
                   accumulated += data.text;
                   setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantId
-                        ? { ...m, content: accumulated }
-                        : m
-                    )
+                    prev.map((m) => m.id === assistantId ? { ...m, content: accumulated } : m)
                   );
                 } else if (data.type === "result" && typeof data.text === "string") {
-                  accumulated = data.text; // result is the final complete text
+                  accumulated = data.text;
                   setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantId
-                        ? { ...m, content: accumulated }
-                        : m
-                    )
+                    prev.map((m) => m.id === assistantId ? { ...m, content: accumulated } : m)
                   );
                 }
-              } catch {
-                // skip unparseable
-              }
-            } else if (line.startsWith("event: done")) {
-              // Next line has the done data
-            } else if (
-              line.startsWith("data: ") &&
-              line.includes("sessionId")
-            ) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.sessionId) {
-                  setSessionId(data.sessionId);
-                  localStorage.setItem(
-                    `chat-session-${carouselId}`,
-                    data.sessionId
-                  );
-                }
-              } catch {
-                // skip
-              }
+              } catch { /* skip */ }
             }
           }
         }
 
-        // Parse any remaining buffer for the done event
         if (buffer.trim()) {
           for (const line of buffer.split("\n")) {
             if (line.startsWith("data: ")) {
@@ -193,55 +183,51 @@ export function ChatPanel({
                 const data = JSON.parse(line.slice(6));
                 if (data.sessionId) {
                   setSessionId(data.sessionId);
-                  localStorage.setItem(
-                    `chat-session-${carouselId}`,
-                    data.sessionId
-                  );
+                  localStorage.setItem(`chat-session-${carouselId}`, data.sessionId);
                 }
-              } catch {
-                // skip
-              }
+              } catch { /* skip */ }
             }
           }
         }
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
-        const message = err instanceof Error ? err.message : "An unexpected error occurred";
-        setError(message);
-        // Remove empty assistant message on error
-        setMessages((prev) =>
-          prev.filter(
-            (m) => m.id !== assistantId || m.content.length > 0
-          )
-        );
+        const msg = err instanceof Error ? err.message : "An unexpected error occurred";
+        setError(msg);
+        setMessages((prev) => prev.filter((m) => m.id !== assistantId || m.content.length > 0));
       } finally {
         setIsStreaming(false);
         abortRef.current = null;
-        // Persist messages after stream completes
-        setMessages((prev) => {
-          persistMessages(prev);
-          return prev;
-        });
+        setMessages((prev) => { persistMessages(prev); return prev; });
         onStreamEnd?.();
       }
     },
-    [isStreaming, sessionId, carouselId, onStreamStart, onStreamEnd, persistMessages]
+    [isStreaming, sessionId, carouselId, onStreamStart, onStreamEnd, persistMessages, onCommitChanges, pendingRatio, pendingTheme]
   );
+
+  useEffect(() => {
+    if (autoSendMessage && !isStreaming) {
+      handleSend(autoSendMessage);
+      onAutoSendConsumed?.();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSendMessage]);
+
+  const typeWord = isPost ? t("postWord") : t("carouselWord");
 
   if (!claudeAvailable) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 text-center">
         <Plug className="h-10 w-10 text-muted-foreground mb-3" />
-        <h3 className="font-semibold text-sm mb-1">Connect Claude CLI</h3>
+        <h3 className="font-semibold text-sm mb-1">{t("connectClaude")}</h3>
         <p className="text-xs text-muted-foreground max-w-[200px]">
-          Install Claude CLI to enable AI-powered carousel creation.{" "}
+          {t("connectClaudeDesc", { type: typeWord })}{" "}
           <a
             href="https://docs.anthropic.com/en/docs/claude-code"
             target="_blank"
             rel="noopener noreferrer"
             className="text-accent underline"
           >
-            Install guide
+            {t("installGuide")}
           </a>
         </p>
       </div>
@@ -252,9 +238,9 @@ export function ChatPanel({
     <div className="h-full flex flex-col">
       <div className="px-4 py-3 border-b border-border flex items-start justify-between">
         <div>
-          <h2 className="text-sm font-semibold">AI Assistant</h2>
+          <h2 className="text-sm font-semibold">{t("aiAssistant")}</h2>
           <p className="text-xs text-muted-foreground">
-            Describe the carousel you want to create
+            {t("describeContent", { type: typeWord })}
           </p>
         </div>
         {messages.length > 0 && (
@@ -262,7 +248,7 @@ export function ChatPanel({
             onClick={handleClearChat}
             className="text-[10px] text-muted-foreground hover:text-destructive transition-colors px-1.5 py-0.5 rounded"
           >
-            Clear
+            {t("clearChat")}
           </button>
         )}
       </div>
@@ -276,10 +262,8 @@ export function ChatPanel({
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         {messages.length === 0 && (
           <div className="p-6 text-center text-muted-foreground">
-            <p className="text-sm mb-1">No messages yet</p>
-            <p className="text-xs">
-              Tell me what carousel you&apos;d like to create
-            </p>
+            <p className="text-sm mb-1">{t("noMessages")}</p>
+            <p className="text-xs">{t("tellMeWhat", { type: typeWord })}</p>
           </div>
         )}
         {messages.map((msg) => (
@@ -307,6 +291,11 @@ export function ChatPanel({
         isStreaming={isStreaming}
         textareaRef={chatInputRef}
         onStop={handleStopGenerating}
+        isPost={isPost}
+        theme={pendingTheme}
+        onThemeChange={setPendingTheme}
+        aspectRatio={pendingRatio}
+        onAspectRatioChange={setPendingRatio}
       />
     </div>
   );

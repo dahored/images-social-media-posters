@@ -1,4 +1,4 @@
-import type { BrandColors, BrandFonts } from "./brand";
+import type { BrandColors, BrandFonts, LogoPosition } from "./brand";
 
 export interface AccountBrandingOverride {
   colors?: Partial<BrandColors>;
@@ -26,7 +26,12 @@ export interface AccountsData {
 export interface EffectiveBranding {
   name: string;
   colors: BrandColors;
+  colorsLight?: BrandColors;
   fonts: BrandFonts;
   logoPath: string | null;
+  logoPathDark?: string | null;
+  logoPathLight?: string | null;
+  logoPosition?: LogoPosition;
+  logoHeight?: number;
   styleKeywords: string[];
 }

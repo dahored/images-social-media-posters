@@ -2,16 +2,117 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Settings, Layers, Globe, Send } from "lucide-react";
+import { ArrowLeft, Settings, Layers, Building2, Globe, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AccountSelector } from "@/components/brand/AccountSelector";
+import { useI18n, type Locale } from "@/lib/i18n/context";
 
 interface TopBarProps {
   title?: string;
   showBack?: boolean;
   editable?: boolean;
   onTitleChange?: (newTitle: string) => void;
-  onSettingsClick?: () => void;
+}
+
+function LanguageToggle() {
+  const { locale, setLocale, t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const options: { value: Locale; label: string }[] = [
+    { value: "en", label: t("english") },
+    { value: "es", label: t("spanish") },
+  ];
+
+  return (
+    <div ref={ref} className="relative">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs text-muted-foreground gap-1.5 px-2"
+        title={t("language")}
+      >
+        <Globe className="h-3.5 w-3.5" />
+        {locale.toUpperCase()}
+      </Button>
+
+      {open && (
+        <div className="absolute top-full right-0 mt-1 w-32 rounded-xl border border-border bg-surface shadow-xl z-50 overflow-hidden py-1">
+          {options.map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => { setLocale(value); setOpen(false); }}
+              className={`w-full text-left flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
+                locale === value
+                  ? "text-accent font-medium bg-accent/5"
+                  : "text-foreground hover:bg-muted"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SettingsDropdown() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const { t } = useI18n();
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const items = [
+    { href: "/brands", icon: Building2, label: t("brands") },
+    { href: "/settings/networks", icon: Globe, label: t("networks") },
+    { href: "/settings/telegram", icon: Send, label: t("telegram") },
+  ];
+
+  return (
+    <div ref={ref} className="relative">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={t("settings")}
+      >
+        <Settings className="h-4 w-4" />
+      </Button>
+
+      {open && (
+        <div className="absolute top-full right-0 mt-1 w-44 rounded-xl border border-border bg-surface shadow-xl z-50 overflow-hidden py-1">
+          {items.map(({ href, icon: Icon, label }) => (
+            <Link
+              key={href}
+              href={href}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+            >
+              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+              {label}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function TopBar({
@@ -19,11 +120,11 @@ export function TopBar({
   showBack,
   editable,
   onTitleChange,
-  onSettingsClick,
 }: TopBarProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const { t } = useI18n();
 
   const startEditing = () => {
     setEditValue(title || "");
@@ -48,13 +149,15 @@ export function TopBar({
     <header className="h-14 border-b border-border bg-surface flex items-center px-4 gap-3 shrink-0">
       {showBack && (
         <Link href="/">
-          <Button variant="ghost" size="icon" aria-label="Back to dashboard">
+          <Button variant="ghost" size="icon" aria-label={t("backToDashboard")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
       )}
+      <Link href="/" className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity">
+        <Layers className="h-5 w-5 text-accent" />
+      </Link>
       <div className="flex items-center gap-2 min-w-0">
-        <Layers className="h-5 w-5 text-accent shrink-0" />
         {isEditing && editable ? (
           <input
             ref={inputRef}
@@ -71,37 +174,21 @@ export function TopBar({
             className="font-semibold text-sm bg-transparent border-b-2 border-accent outline-none py-0.5 min-w-30"
           />
         ) : (
-          <span
-            className={`font-semibold text-sm truncate ${editable ? "cursor-pointer hover:text-accent transition-colors" : ""}`}
-            onClick={() => editable && startEditing()}
-            title={editable ? "Click to rename" : undefined}
-          >
-            {title || "Open Carrusel"}
-          </span>
+          <Link href="/" className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity">
+            <span
+              className={`font-semibold text-sm truncate ${editable ? "cursor-pointer hover:text-accent transition-colors" : ""}`}
+              onClick={() => editable && startEditing()}
+              title={editable ? t("clickToRename") : undefined}
+            >
+              {title || t("contentStudio")}
+            </span>
+          </Link>
         )}
       </div>
       <div className="flex-1" />
       <AccountSelector />
-      <Link href="/settings/telegram">
-        <Button variant="ghost" size="icon" aria-label="Telegram settings" title="Telegram">
-          <Send className="h-4 w-4" />
-        </Button>
-      </Link>
-      <Link href="/settings/networks">
-        <Button variant="ghost" size="icon" aria-label="Network catalog" title="Network catalog">
-          <Globe className="h-4 w-4" />
-        </Button>
-      </Link>
-      {onSettingsClick && (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onSettingsClick}
-          aria-label="Brand settings"
-        >
-          <Settings className="h-4 w-4" />
-        </Button>
-      )}
+      <LanguageToggle />
+      <SettingsDropdown />
     </header>
   );
 }

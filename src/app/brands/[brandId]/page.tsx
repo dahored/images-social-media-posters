@@ -2,12 +2,13 @@
 
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Plus, User, Copy, Trash2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, Plus, User, Copy, Trash2, Settings } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useI18n } from "@/lib/i18n/context";
 import type { Brand } from "@/types/brand";
 import type { Account } from "@/types/account";
 import type { Network } from "@/types/network";
@@ -17,6 +18,8 @@ interface PageProps { params: Promise<{ brandId: string }> }
 export default function BrandDetailPage({ params }: PageProps) {
   const { brandId } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { t } = useI18n();
   const [brand, setBrand] = useState<Brand | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [networks, setNetworks] = useState<Network[]>([]);
@@ -43,11 +46,14 @@ export default function BrandDetailPage({ params }: PageProps) {
     }).catch(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [brandId]);
+  useEffect(() => {
+    load();
+    if (searchParams.get("new") === "1") setShowAddAccount(true);
+  }, [brandId]);
 
   const handleAddAccount = async () => {
     if (!newAccountName.trim()) return;
-    await fetch("/api/accounts", {
+    const res = await fetch("/api/accounts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -57,17 +63,23 @@ export default function BrandDetailPage({ params }: PageProps) {
         handle: newAccountHandle.trim(),
       }),
     });
-    setShowAddAccount(false);
-    setNewAccountName("");
-    setNewAccountHandle("");
-    load();
+    if (res.ok) {
+      const newAccount = await res.json();
+      localStorage.setItem("activeAccountId", newAccount.id);
+      router.push("/");
+    } else {
+      setShowAddAccount(false);
+      setNewAccountName("");
+      setNewAccountHandle("");
+      load();
+    }
   };
 
   const handleDeleteAccount = (account: Account) => {
     setConfirmState({
       open: true,
-      title: `Delete account "${account.displayName}"?`,
-      description: "This won't delete the posts/carousels associated with this account.",
+      title: t("deleteAccountConfirm", { name: account.displayName }),
+      description: t("deleteAccountDesc"),
       onConfirm: async () => {
         await fetch(`/api/accounts/${account.id}`, { method: "DELETE" });
         load();
@@ -101,7 +113,7 @@ export default function BrandDetailPage({ params }: PageProps) {
         onOpenChange={(open) => setConfirmState((s) => ({ ...s, open }))}
         title={confirmState.title}
         description={confirmState.description}
-        confirmLabel="Delete"
+        confirmLabel={t("delete")}
         variant="destructive"
         onConfirm={confirmState.onConfirm}
       />
@@ -115,37 +127,37 @@ export default function BrandDetailPage({ params }: PageProps) {
             <div>
               <h1 className="text-xl font-bold">{brand.name}</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
-                {accounts.length} account{accounts.length !== 1 ? "s" : ""}
+                {accounts.length} {accounts.length === 1 ? t("account") : t("accountPlural")}
               </p>
             </div>
             <div className="ml-auto">
               <Button onClick={() => setShowAddAccount(true)} variant="accent" size="sm">
                 <Plus className="h-4 w-4" />
-                New Account
+                {t("newAccount")}
               </Button>
             </div>
           </div>
 
           {showAddAccount && (
             <div className="mb-6 p-4 rounded-xl border border-accent/40 bg-accent/5 space-y-3">
-              <h3 className="text-sm font-semibold">New account in {brand.name}</h3>
+              <h3 className="text-sm font-semibold">{t("newAccountIn", { brandName: brand.name })}</h3>
               <Input
                 value={newAccountName}
                 onChange={(e) => setNewAccountName(e.target.value)}
-                placeholder="Account display name"
+                placeholder={t("accountDisplayName")}
                 autoFocus
               />
               <Input
                 value={newAccountHandle}
                 onChange={(e) => setNewAccountHandle(e.target.value)}
-                placeholder="@handle (optional)"
+                placeholder={t("handleOptional")}
               />
               <div className="flex flex-wrap gap-1.5">
                 {networks.map((n) => (
                   <button
                     key={n.id}
                     onClick={() => setNewAccountNetwork(n.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                    className={`px-3 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
                       newAccountNetwork === n.id
                         ? "bg-foreground text-background border-foreground"
                         : "border-border text-muted-foreground hover:text-foreground"
@@ -157,9 +169,9 @@ export default function BrandDetailPage({ params }: PageProps) {
               </div>
               <div className="flex gap-2">
                 <Button onClick={handleAddAccount} variant="accent" size="sm" disabled={!newAccountName.trim()}>
-                  Create Account
+                  {t("createAccount")}
                 </Button>
-                <Button onClick={() => setShowAddAccount(false)} variant="outline" size="sm">Cancel</Button>
+                <Button onClick={() => setShowAddAccount(false)} variant="outline" size="sm">{t("cancel")}</Button>
               </div>
             </div>
           )}
@@ -168,7 +180,7 @@ export default function BrandDetailPage({ params }: PageProps) {
             {accounts.length === 0 ? (
               <div className="text-center py-12 border border-dashed border-border rounded-xl">
                 <User className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No accounts yet.</p>
+                <p className="text-sm text-muted-foreground">{t("noAccountsYet")}</p>
               </div>
             ) : (
               accounts.map((account) => {
@@ -186,14 +198,21 @@ export default function BrandDetailPage({ params }: PageProps) {
                         {account.displayName}
                       </Link>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {account.handle || "no handle"} · {network?.name || account.networkId}
+                        {account.handle || t("noHandle")} · {network?.name || account.networkId}
                       </p>
                     </div>
                     <div className="flex gap-1 shrink-0">
+                      <Link
+                        href={`/accounts/${account.id}`}
+                        className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
+                        title={t("accountSettingsTooltip")}
+                      >
+                        <Settings className="h-3 w-3" />
+                      </Link>
                       <button
                         onClick={() => handleDuplicate(account.id)}
                         className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
-                        title="Duplicate account"
+                        title={t("duplicateAccount")}
                       >
                         <Copy className="h-3 w-3" />
                       </button>

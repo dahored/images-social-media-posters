@@ -62,8 +62,13 @@ export async function POST(request: NextRequest) {
         ...legacyBrand,
         name: effectiveBranding.name,
         colors: effectiveBranding.colors,
+        colorsLight: effectiveBranding.colorsLight,
         fonts: effectiveBranding.fonts,
         logoPath: effectiveBranding.logoPath,
+        logoPathDark: effectiveBranding.logoPathDark,
+        logoPathLight: effectiveBranding.logoPathLight,
+        logoPosition: effectiveBranding.logoPosition,
+        logoHeight: effectiveBranding.logoHeight,
         styleKeywords: effectiveBranding.styleKeywords,
       }
     : legacyBrand;

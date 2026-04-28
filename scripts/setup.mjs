@@ -90,7 +90,7 @@ function seedDataFiles() {
       colors: {
         primary: "#1a1a2e",
         secondary: "#16213e",
-        accent: "#e94560",
+        accent: "#7f22fe",
         background: "#ffffff",
         surface: "#f5f5f5",
       },

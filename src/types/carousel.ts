@@ -1,6 +1,32 @@
 export type AspectRatio = "1:1" | "4:5" | "9:16";
 export type ContentKind = "post" | "carousel";
 
+import type { LogoPosition } from "./brand";
+
+export interface CarouselBrandingOverride {
+  theme?: "dark" | "light";
+  logoPosition?: LogoPosition;
+  logoHeight?: number;
+  colors?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+    background?: string;
+    surface?: string;
+  };
+  colorsLight?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+    background?: string;
+    surface?: string;
+  };
+  fonts?: {
+    heading?: string;
+    body?: string;
+  };
+}
+
 export interface PublishHistoryEntry {
   destination: string;
   timestamp: string;
@@ -28,6 +54,7 @@ export interface Carousel {
   id: string;
   name: string;
   kind: ContentKind;
+  accountId?: string;
   networkId?: string;
   aspectRatio: AspectRatio;
   slides: Slide[];
@@ -35,6 +62,7 @@ export interface Carousel {
   caption?: string;
   hashtags?: string[];
   publishHistory?: PublishHistoryEntry[];
+  brandingOverride?: CarouselBrandingOverride;
   chatSessionId: string | null;
   isTemplate: boolean;
   tags: string[];

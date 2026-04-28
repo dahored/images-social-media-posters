@@ -2,7 +2,7 @@ import puppeteer, { type Browser } from "puppeteer";
 import { readFile } from "fs/promises";
 import path from "path";
 import sharp from "sharp";
-import { wrapSlideHtml, extractFontFamilies } from "./slide-html";
+import { wrapSlideHtml, extractFontFamilies, type LogoConfig } from "./slide-html";
 import { getInlinedFontCSS } from "./fonts";
 import type { Slide, AspectRatio } from "@/types/carousel";
 import { DIMENSIONS } from "@/types/carousel";
@@ -60,12 +60,27 @@ async function inlineImages(html: string): Promise<string> {
   return result;
 }
 
+async function inlineImagePath(imgPath: string): Promise<string> {
+  try {
+    const uploadDir = path.resolve(process.cwd(), "public");
+    const fullPath = path.join(uploadDir, imgPath);
+    const buffer = await readFile(fullPath);
+    const ext = path.extname(imgPath).toLowerCase();
+    const mime =
+      ext === ".png" ? "image/png" : ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : "image/webp";
+    return `data:${mime};base64,${buffer.toString("base64")}`;
+  } catch {
+    return imgPath;
+  }
+}
+
 /**
  * Export a single slide to PNG buffer.
  */
 export async function exportSlide(
   slide: Slide,
-  aspectRatio: AspectRatio
+  aspectRatio: AspectRatio,
+  logoConfig?: LogoConfig
 ): Promise<Buffer> {
   const { width, height } = DIMENSIONS[aspectRatio];
 
@@ -73,12 +88,16 @@ export async function exportSlide(
   const fontFamilies = extractFontFamilies(slide.html);
   const inlinedFontCss = await getInlinedFontCSS(fontFamilies);
 
-  // Inline images
+  // Inline images (including logo path if present)
   const inlinedHtml = await inlineImages(slide.html);
+  const inlinedLogoConfig = logoConfig && logoConfig.path !== "none"
+    ? { ...logoConfig, path: await inlineImagePath(logoConfig.path) }
+    : logoConfig;
 
   // Build self-contained HTML
   const fullHtml = wrapSlideHtml(inlinedHtml, aspectRatio, {
     inlineFontCss: inlinedFontCss,
+    logoConfig: inlinedLogoConfig,
   });
 
   const br = await getBrowser();
@@ -127,6 +146,7 @@ export async function exportSlide(
 export async function exportAllSlides(
   slides: Slide[],
   aspectRatio: AspectRatio,
+  logoConfig?: LogoConfig,
   onProgress?: (current: number, total: number) => void
 ): Promise<{ name: string; buffer: Buffer }[]> {
   const results: { name: string; buffer: Buffer }[] = [];
@@ -137,7 +157,7 @@ export async function exportAllSlides(
     const batchResults = await Promise.all(
       batch.map(async (slide, batchIdx) => {
         const idx = i + batchIdx;
-        const buffer = await exportSlide(slide, aspectRatio);
+        const buffer = await exportSlide(slide, aspectRatio, logoConfig);
         onProgress?.(idx + 1, slides.length);
         return { name: `slide-${idx + 1}.png`, buffer };
       })

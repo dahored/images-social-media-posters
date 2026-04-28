@@ -4,16 +4,16 @@ import { useState, useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Send, Download, Loader2, Check, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n/context";
 
 interface PublishButtonProps {
   carouselId: string;
   slideCount: number;
   isPost?: boolean;
-  caption?: string;
-  hashtags?: string[];
 }
 
 export function PublishButton({ carouselId, slideCount, isPost = false }: PublishButtonProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [telegramConfigured, setTelegramConfigured] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -67,23 +67,18 @@ export function PublishButton({ carouselId, slideCount, isPost = false }: Publis
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={slideCount === 0}
-          className="gap-1.5"
-        >
+        <Button variant="outline" size="sm" disabled={slideCount === 0} className="gap-1.5">
           <Send className="h-3.5 w-3.5" />
-          Publish
+          {t("publish")}
           <ChevronDown className="h-3 w-3 opacity-50" />
         </Button>
       </Dialog.Trigger>
 
       <Dialog.Portal>
         <Dialog.Overlay data-oc-overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
-        <Dialog.Content data-oc-dialog className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface border border-border p-5 shadow-2xl">
+        <Dialog.Content data-oc-dialog className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm rounded-xl bg-surface border border-border p-5 shadow-2xl">
           <div className="flex items-center justify-between mb-4">
-            <Dialog.Title className="text-sm font-semibold">Publish</Dialog.Title>
+            <Dialog.Title className="text-sm font-semibold">{t("publish")}</Dialog.Title>
             <Dialog.Close asChild>
               <button className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted">
                 <X className="h-4 w-4" />
@@ -94,17 +89,17 @@ export function PublishButton({ carouselId, slideCount, isPost = false }: Publis
           <div className="space-y-2">
             <button
               onClick={handleDownload}
-              className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors"
+              className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors cursor-pointer"
             >
               <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
                 <Download className="h-4 w-4" />
               </div>
               <div>
                 <div className="text-sm font-medium">
-                  {isPost ? "Download PNG" : "Download ZIP"}
+                  {isPost ? t("downloadPNG") : t("downloadZIP")}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {isPost ? "Single image file" : "All slides as PNG files"}
+                  {isPost ? t("singleImageFile") : t("allSlidesZIP")}
                 </div>
               </div>
             </button>
@@ -126,19 +121,19 @@ export function PublishButton({ carouselId, slideCount, isPost = false }: Publis
                 </div>
                 <div>
                   <div className="text-sm font-medium">
-                    {done ? "Sent!" : publishing ? "Sending..." : "Send to Telegram"}
+                    {done ? t("sent") : publishing ? t("sending") : t("sendToTelegram")}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {isPost ? "Send image to your channel" : "Send all slides as media group"}
+                    {isPost ? t("sendImageToChannel") : t("sendSlidesMediaGroup")}
                   </div>
                 </div>
               </button>
             ) : (
               <div className="p-3 rounded-lg border border-dashed border-border text-center">
                 <p className="text-xs text-muted-foreground">
-                  Telegram not configured.{" "}
+                  {t("telegramNotConfigured")}{" "}
                   <a href="/settings/telegram" className="text-accent underline">
-                    Set up now
+                    {t("telegramSetUpNow")}
                   </a>
                 </p>
               </div>

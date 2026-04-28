@@ -3,6 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { AlertTriangle, X } from "lucide-react";
 import { Button } from "./button";
+import { useI18n } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 
 interface ConfirmDialogProps {
@@ -20,15 +21,16 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = "Confirm",
+  confirmLabel,
   variant = "default",
   onConfirm,
 }: ConfirmDialogProps) {
+  const { t } = useI18n();
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay data-oc-overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
-        <Dialog.Content data-oc-dialog className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface border border-border p-6 shadow-2xl">
+        <Dialog.Content data-oc-dialog className="fixed left-1/2 top-1/2 z-50 w-full max-w-md rounded-xl bg-surface border border-border p-6 shadow-2xl">
           <div className="flex items-start gap-4">
             <div
               className={cn(
@@ -51,7 +53,7 @@ export function ConfirmDialog({
             <Dialog.Close asChild>
               <button
                 className="h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                aria-label="Close"
+                aria-label={t("close")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -60,7 +62,7 @@ export function ConfirmDialog({
           <div className="flex justify-end gap-2 mt-6">
             <Dialog.Close asChild>
               <Button variant="outline" size="sm">
-                Cancel
+                {t("cancel")}
               </Button>
             </Dialog.Close>
             <Button
@@ -71,7 +73,7 @@ export function ConfirmDialog({
                 onOpenChange(false);
               }}
             >
-              {confirmLabel}
+              {confirmLabel ?? t("confirm")}
             </Button>
           </div>
         </Dialog.Content>

@@ -91,8 +91,13 @@ export async function getEffectiveBranding(accountId: string): Promise<Effective
   return {
     name: account.displayName || brand.name,
     colors: { ...brand.colors, ...override.colors },
+    colorsLight: brand.colorsLight,
     fonts: { ...brand.fonts, ...override.fonts },
     logoPath: override.logoPath !== undefined ? override.logoPath : brand.logoPath,
+    logoPathDark: brand.logoPathDark,
+    logoPathLight: brand.logoPathLight,
+    logoPosition: brand.logoPosition,
+    logoHeight: brand.logoHeight,
     styleKeywords: override.styleKeywords ?? brand.styleKeywords,
   };
 }

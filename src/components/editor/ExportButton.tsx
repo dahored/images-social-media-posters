@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Download, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n/context";
 
 interface ExportButtonProps {
   carouselId: string;
@@ -11,6 +12,7 @@ interface ExportButtonProps {
 }
 
 export function ExportButton({ carouselId, slideCount, isPost = false }: ExportButtonProps) {
+  const { t } = useI18n();
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [done, setDone] = useState(false);
@@ -22,55 +24,39 @@ export function ExportButton({ carouselId, slideCount, isPost = false }: ExportB
     setProgress({ current: 0, total: slideCount });
 
     try {
-      const response = await fetch(`/api/carousels/${carouselId}/export`, {
-        method: "POST",
-      });
+      const response = await fetch(`/api/carousels/${carouselId}/export`, { method: "POST" });
+      if (!response.ok) throw new Error("Export failed");
 
-      if (!response.ok) {
-        throw new Error("Export failed");
-      }
-
-      // Check if it's SSE (progress) or direct blob (ZIP)
       const contentType = response.headers.get("Content-Type");
       if (contentType?.includes("text/event-stream")) {
-        // SSE progress mode
         const reader = response.body?.getReader();
         if (!reader) return;
-
         const decoder = new TextDecoder();
         let buffer = "";
 
         while (true) {
           const { done: streamDone, value } = await reader.read();
           if (streamDone) break;
-
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
           buffer = lines.pop() ?? "";
-
           for (const line of lines) {
             if (line.startsWith("data: ")) {
               try {
                 const data = JSON.parse(line.slice(6));
-                if (data.current && data.total) {
-                  setProgress({ current: data.current, total: data.total });
-                }
+                if (data.current && data.total) setProgress({ current: data.current, total: data.total });
                 if (data.downloadUrl) {
-                  // Trigger download
                   const a = document.createElement("a");
                   a.href = data.downloadUrl;
                   a.download = `carousel-${carouselId}.zip`;
                   a.click();
                   setDone(true);
                 }
-              } catch {
-                // skip
-              }
+              } catch { /* skip */ }
             }
           }
         }
       } else {
-        // Direct download (ZIP for carousels, PNG for posts)
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -89,12 +75,7 @@ export function ExportButton({ carouselId, slideCount, isPost = false }: ExportB
   };
 
   return (
-    <Button
-      onClick={handleExport}
-      disabled={exporting || slideCount === 0}
-      variant="accent"
-      size="sm"
-    >
+    <Button onClick={handleExport} disabled={exporting || slideCount === 0} variant="accent" size="sm">
       <span
         key={exporting ? "exporting" : done ? "done" : "idle"}
         className="oc-enter-pop inline-flex items-center gap-2"
@@ -102,19 +83,17 @@ export function ExportButton({ carouselId, slideCount, isPost = false }: ExportB
         {exporting ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>
-              {progress.current}/{progress.total}
-            </span>
+            <span>{progress.current}/{progress.total}</span>
           </>
         ) : done ? (
           <>
             <Check className="h-4 w-4" />
-            <span>Downloaded!</span>
+            <span>{t("downloaded")}</span>
           </>
         ) : (
           <>
             <Download className="h-4 w-4" />
-            <span>{isPost ? "Export PNG" : "Export ZIP"}</span>
+            <span>{isPost ? t("exportPNG") : t("exportZIP")}</span>
           </>
         )}
       </span>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { I18nProvider } from "@/lib/i18n/context";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Open Carrusel — AI Carousel Builder",
+  title: "Content Studio — AI Social Media Builder",
   description:
-    "Open-source AI-powered Instagram carousel builder. Create beautiful carousels with natural language.",
+    "AI-powered multi-brand social media content studio. Create posts and carousels for any network with natural language.",
 };
 
 export default function RootLayout({
@@ -33,7 +34,9 @@ export default function RootLayout({
       <head>
         <meta name="google" content="notranslate" />
       </head>
-      <body className="h-full notranslate" suppressHydrationWarning>{children}</body>
+      <body className="h-full notranslate" suppressHydrationWarning>
+        <I18nProvider>{children}</I18nProvider>
+      </body>
     </html>
   );
 }

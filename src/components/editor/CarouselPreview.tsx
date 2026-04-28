@@ -4,8 +4,8 @@ import { useEffect, useRef, type CSSProperties } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SlideRenderer } from "./SlideRenderer";
-import { SafeZoneOverlay } from "./SafeZoneOverlay";
 import type { Slide, AspectRatio } from "@/types/carousel";
+import type { LogoConfig } from "@/lib/slide-html";
 
 interface CarouselPreviewProps {
   slides: Slide[];
@@ -13,6 +13,9 @@ interface CarouselPreviewProps {
   activeIndex: number;
   onActiveChange: (index: number) => void;
   showSafeZones?: boolean;
+  isPost?: boolean;
+  isGenerating?: boolean;
+  logoConfig?: LogoConfig;
 }
 
 export function CarouselPreview({
@@ -21,6 +24,9 @@ export function CarouselPreview({
   activeIndex,
   onActiveChange,
   showSafeZones = false,
+  isPost = false,
+  isGenerating = false,
+  logoConfig,
 }: CarouselPreviewProps) {
   const slide = slides[activeIndex];
   const prevIndexRef = useRef(activeIndex);
@@ -31,14 +37,22 @@ export function CarouselPreview({
 
   if (!slide) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[#f0f0f0]">
+      <div className="flex-1 relative flex items-center justify-center bg-[#f0f0f0]">
+        {isGenerating && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
+            <div className="flex flex-col items-center gap-3 bg-black/60 rounded-2xl px-8 py-5">
+              <div className="h-7 w-7 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span className="text-white text-xs font-medium tracking-wide">Generando…</span>
+            </div>
+          </div>
+        )}
         <div className="text-center text-muted-foreground p-8">
           <div className="w-16 h-20 border-2 border-dashed border-muted-foreground/30 rounded-lg mx-auto mb-4 flex items-center justify-center">
             <span className="text-2xl opacity-30">+</span>
           </div>
           <p className="text-sm font-medium">No slides yet</p>
           <p className="text-xs mt-1 max-w-[200px]">
-            Use the AI assistant to create your first carousel slide
+            Use the AI assistant to create your first {isPost ? "post" : "carousel slide"}
           </p>
         </div>
       </div>
@@ -49,6 +63,15 @@ export function CarouselPreview({
     <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#f0f0f0]">
       {/* Preview area with padding for arrows */}
       <div className="flex-1 relative min-h-0 p-8 px-14">
+        {/* Generating overlay */}
+        {isGenerating && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
+            <div className="flex flex-col items-center gap-3 bg-black/60 rounded-2xl px-8 py-5">
+              <div className="h-7 w-7 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span className="text-white text-xs font-medium tracking-wide">Generando…</span>
+            </div>
+          </div>
+        )}
         {/* Left arrow */}
         <Button
           variant="ghost"
@@ -71,8 +94,9 @@ export function CarouselPreview({
             html={slide.html}
             aspectRatio={aspectRatio}
             style={{ width: "100%", height: "100%" }}
+            showSafeZones={showSafeZones}
+            logoConfig={logoConfig}
           />
-          <SafeZoneOverlay aspectRatio={aspectRatio} visible={showSafeZones} />
         </div>
 
         {/* Right arrow */}

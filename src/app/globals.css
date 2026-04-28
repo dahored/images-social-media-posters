@@ -7,7 +7,7 @@
   --muted-foreground: #737373;
   --border: #e5e5e5;
   --ring: #1a1a2e;
-  --accent: #e94560;
+  --accent: #7f22fe;
   --accent-foreground: #ffffff;
   --surface: #ffffff;
   --destructive: #ef4444;
@@ -82,11 +82,15 @@ body {
 [data-oc-overlay][data-state="closed"] {
   animation: oc-overlay-out 140ms var(--ease-out-strong);
 }
+[data-oc-dialog] {
+  /* Ensure positioning transform is always applied, separate from animation transforms */
+  transform: translate(-50%, -50%);
+}
 [data-oc-dialog][data-state="open"] {
-  animation: oc-dialog-in 200ms var(--ease-out-strong);
+  animation: oc-dialog-in 200ms var(--ease-out-strong) both;
 }
 [data-oc-dialog][data-state="closed"] {
-  animation: oc-dialog-out 150ms var(--ease-out-strong);
+  animation: oc-dialog-out 150ms var(--ease-out-strong) both;
 }
 
 @keyframes oc-fade-scale-in {

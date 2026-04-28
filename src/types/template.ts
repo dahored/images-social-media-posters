@@ -1,4 +1,4 @@
-import type { AspectRatio, Slide } from "./carousel";
+import type { AspectRatio, Slide, ContentKind } from "./carousel";
 
 export type TemplateScope = "global" | "brand" | "account";
 
@@ -7,6 +7,7 @@ export interface Template {
   name: string;
   description: string;
   aspectRatio: AspectRatio;
+  kind?: ContentKind;
   slides: Omit<Slide, "previousVersions">[];
   tags: string[];
   scope?: TemplateScope;

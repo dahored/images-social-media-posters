@@ -1,6 +1,7 @@
 import { readDataSafe, writeData } from "./data";
 import { generateId, now } from "./utils";
-import type { Carousel, CarouselsData, Slide, AspectRatio, ReferenceImage, ContentKind } from "@/types/carousel";
+import { listAccounts } from "./accounts";
+import type { Carousel, CarouselsData, Slide, AspectRatio, ReferenceImage, ContentKind, CarouselBrandingOverride } from "@/types/carousel";
 import { MAX_SLIDES, MAX_VERSIONS } from "@/types/carousel";
 
 const FILE = "carousels.json";
@@ -13,9 +14,25 @@ async function save(data: CarouselsData): Promise<void> {
   await writeData(FILE, data);
 }
 
-export async function listCarousels(): Promise<Carousel[]> {
+async function migrateOrphans(data: CarouselsData): Promise<boolean> {
+  const orphans = data.carousels.filter((c) => !c.accountId);
+  if (orphans.length === 0) return false;
+  const accounts = await listAccounts();
+  if (accounts.length === 0) return false;
+  const defaultAccountId = accounts[0].id;
+  orphans.forEach((c) => { c.accountId = defaultAccountId; });
+  return true;
+}
+
+export async function listCarousels(accountId?: string): Promise<Carousel[]> {
   const data = await load();
-  return data.carousels.filter((c) => !c.isTemplate);
+  const migrated = await migrateOrphans(data);
+  if (migrated) await save(data);
+  return data.carousels.filter((c) => {
+    if (c.isTemplate) return false;
+    if (accountId) return c.accountId === accountId;
+    return true;
+  });
 }
 
 export async function getCarousel(id: string): Promise<Carousel | null> {
@@ -27,13 +44,16 @@ export async function createCarousel(
   name: string,
   aspectRatio: AspectRatio,
   kind: ContentKind = "carousel",
-  networkId?: string
+  networkId?: string,
+  accountId?: string,
+  brandingOverride?: CarouselBrandingOverride
 ): Promise<Carousel> {
   const data = await load();
   const carousel: Carousel = {
     id: generateId(),
     name,
     kind,
+    accountId,
     networkId,
     aspectRatio,
     slides: [],
@@ -43,6 +63,7 @@ export async function createCarousel(
     tags: [],
     createdAt: now(),
     updatedAt: now(),
+    ...(brandingOverride ? { brandingOverride } : {}),
   };
   data.carousels.push(carousel);
   await save(data);
@@ -51,7 +72,7 @@ export async function createCarousel(
 
 export async function updateCarousel(
   id: string,
-  updates: Partial<Pick<Carousel, "name" | "aspectRatio" | "tags" | "chatSessionId" | "caption" | "hashtags" | "publishHistory">>
+  updates: Partial<Pick<Carousel, "name" | "aspectRatio" | "tags" | "chatSessionId" | "caption" | "hashtags" | "publishHistory" | "brandingOverride">>
 ): Promise<Carousel | null> {
   const data = await load();
   const idx = data.carousels.findIndex((c) => c.id === id);

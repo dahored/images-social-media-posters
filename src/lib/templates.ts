@@ -34,6 +34,7 @@ export async function saveAsTemplate(
     name: name || carousel.name,
     description: description || `Template from ${carousel.name}`,
     aspectRatio: carousel.aspectRatio,
+    kind: carousel.kind,
     slides: carousel.slides.map(({ id, html, order, notes }) => ({
       id,
       html,

@@ -120,7 +120,7 @@ export function ReferenceImages({
           </p>
         </div>
       ) : (
-        <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
+        <div className="flex gap-2 px-4 pt-2 pb-3 overflow-x-auto">
           {images.map((img) => (
             <div key={img.id} className="oc-enter-pop relative group shrink-0">
               <button

@@ -3,13 +3,16 @@
 import { useState, useCallback } from "react";
 import { Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n/context";
 
 interface LogoUploadProps {
   value: string | null;
   onChange: (path: string | null) => void;
+  hideLabel?: boolean;
 }
 
-export function LogoUpload({ value, onChange }: LogoUploadProps) {
+export function LogoUpload({ value, onChange, hideLabel }: LogoUploadProps) {
+  const { t } = useI18n();
   const [uploading, setUploading] = useState(false);
 
   const handleUpload = useCallback(
@@ -18,10 +21,7 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
       try {
         const formData = new FormData();
         formData.append("file", file);
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
+        const res = await fetch("/api/upload", { method: "POST", body: formData });
         if (res.ok) {
           const data = await res.json();
           onChange(data.url);
@@ -46,24 +46,16 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
 
   return (
     <div>
-      <label className="text-xs font-medium text-muted-foreground">Logo</label>
+      {!hideLabel && <label className="text-xs font-medium text-muted-foreground">{t("logo")}</label>}
       {value ? (
         <div className="mt-1 flex items-center gap-3">
-          <div className="h-16 w-16 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden">
+          <div className="h-32 w-32 rounded-lg border border-border flex items-center justify-center overflow-hidden p-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={value}
-              alt="Brand logo"
-              className="max-h-full max-w-full object-contain"
-            />
+            <img src={value} alt={t("brandLogo")} className="max-h-full max-w-full object-contain" />
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onChange(null)}
-          >
+          <Button variant="destructive" size="sm" onClick={() => onChange(null)}>
             <X className="h-3 w-3 mr-1" />
-            Remove
+            {t("remove")}
           </Button>
         </div>
       ) : (
@@ -85,9 +77,7 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
           {uploading ? (
             <div className="flex flex-col items-center gap-2">
               <div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs text-muted-foreground">
-                Uploading...
-              </span>
+              <span className="text-xs text-muted-foreground">{t("uploading")}</span>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
@@ -95,12 +85,8 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
                 <Upload className="h-4 w-4 text-muted-foreground" />
               </div>
               <div>
-                <span className="text-xs font-medium">
-                  Drop your logo here
-                </span>
-                <span className="text-xs text-muted-foreground block">
-                  PNG, JPG, or WebP (max 10MB)
-                </span>
+                <span className="text-xs font-medium">{t("dropLogoHere")}</span>
+                <span className="text-xs text-muted-foreground block">{t("logoFormats")}</span>
               </div>
             </div>
           )}
