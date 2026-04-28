@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SlideRenderer } from "./SlideRenderer";
 import type { Slide, AspectRatio } from "@/types/carousel";
-import type { LogoConfig } from "@/lib/slide-html";
+import type { LogoConfig, ColorSubstitution, FontSubstitution } from "@/lib/slide-html";
 
 interface CarouselPreviewProps {
   slides: Slide[];
@@ -16,6 +16,10 @@ interface CarouselPreviewProps {
   isPost?: boolean;
   isGenerating?: boolean;
   logoConfig?: LogoConfig;
+  colorSubstitution?: ColorSubstitution;
+  fontSubstitution?: FontSubstitution;
+  customBackground?: string;
+  accentOverride?: string;
 }
 
 export function CarouselPreview({
@@ -27,6 +31,10 @@ export function CarouselPreview({
   isPost = false,
   isGenerating = false,
   logoConfig,
+  colorSubstitution,
+  fontSubstitution,
+  customBackground,
+  accentOverride,
 }: CarouselPreviewProps) {
   const slide = slides[activeIndex];
   const prevIndexRef = useRef(activeIndex);
@@ -96,6 +104,10 @@ export function CarouselPreview({
             style={{ width: "100%", height: "100%" }}
             showSafeZones={showSafeZones}
             logoConfig={logoConfig}
+            colorSubstitution={colorSubstitution}
+            fontSubstitution={fontSubstitution}
+            customBackground={customBackground}
+            accentOverride={accentOverride}
           />
         </div>
 

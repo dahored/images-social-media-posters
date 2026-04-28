@@ -17,9 +17,10 @@ import { SafeZoneOverlay } from "@/components/editor/SafeZoneOverlay";
 import { FullscreenPreview } from "@/components/editor/FullscreenPreview";
 import { StyleOverridePanel } from "@/components/editor/StyleOverridePanel";
 import { useI18n } from "@/lib/i18n/context";
-import type { Carousel, AspectRatio, CarouselBrandingOverride } from "@/types/carousel";
-import type { LogoConfig } from "@/lib/slide-html";
+import type { Carousel, AspectRatio, CarouselBrandingOverride, Slide, SlideColorSet } from "@/types/carousel";
+import type { LogoConfig, ColorSubstitution, FontSubstitution } from "@/lib/slide-html";
 import type { EffectiveBranding } from "@/types/account";
+import type { BrandColors } from "@/types/brand";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -56,7 +57,9 @@ export default function CarouselEditorPage({ params }: PageProps) {
   const [contentSidebarOpen, setContentSidebarOpen] = useState(() =>
     typeof window !== "undefined" ? localStorage.getItem("cs-info-open") !== "0" : true
   );
-  const [showStylePanel, setShowStylePanel] = useState(false);
+  const [showStylePanel, setShowStylePanel] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("cs-style-open") === "1" : false
+  );
   const [effectiveBranding, setEffectiveBranding] = useState<EffectiveBranding | null>(null);
 
   const [confirmState, setConfirmState] = useState<{
@@ -67,6 +70,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
   }>({ open: false, title: "", description: "", onConfirm: () => {} });
 
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
+
 
   const fetchCarousel = useCallback(async () => {
     try {
@@ -223,13 +227,28 @@ export default function CarouselEditorPage({ params }: PageProps) {
   }, []);
 
   const handleBrandingOverrideChange = useCallback(async (override: CarouselBrandingOverride) => {
-    await fetch(`/api/carousels/${id}`, {
+    setCarousel((prev) => prev ? { ...prev, brandingOverride: override } : prev);
+    fetch(`/api/carousels/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ brandingOverride: override }),
     });
-    fetchCarousel();
-  }, [id, fetchCarousel]);
+  }, [id]);
+
+  const handleSlideOverrideChange = useCallback(async (slideId: string, override: NonNullable<Slide["styleOverride"]>) => {
+    setCarousel((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        slides: prev.slides.map((s) => s.id === slideId ? { ...s, styleOverride: override } : s),
+      };
+    });
+    fetch(`/api/carousels/${id}/slides/${slideId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ styleOverride: override }),
+    });
+  }, [id]);
 
   if (notFound) {
     return (
@@ -258,13 +277,167 @@ export default function CarouselEditorPage({ params }: PageProps) {
   const logoPath = activeTheme === "dark"
     ? (effectiveBranding?.logoPathLight ?? effectiveBranding?.logoPath ?? null)
     : (effectiveBranding?.logoPathDark ?? effectiveBranding?.logoPath ?? null);
+
+  const logoPosition = carousel.brandingOverride?.logoPosition ?? effectiveBranding?.logoPosition ?? "bottom-center";
+  const logoHeight = carousel.brandingOverride?.logoHeight ?? effectiveBranding?.logoHeight ?? 72;
+
   const logoConfig: LogoConfig | undefined = logoPath
+    ? { path: logoPath, position: logoPosition, height: logoHeight }
+    : undefined;
+
+  // Brand logo variants available for per-slide override
+  const brandLogos = [
+    effectiveBranding?.logoPathLight ? { path: effectiveBranding.logoPathLight, label: "Logo claro" } : null,
+    effectiveBranding?.logoPathDark  ? { path: effectiveBranding.logoPathDark,  label: "Logo oscuro" } : null,
+    effectiveBranding?.logoPath && !effectiveBranding?.logoPathLight && !effectiveBranding?.logoPathDark
+      ? { path: effectiveBranding.logoPath, label: "Logo" } : null,
+  ].filter((x): x is { path: string; label: string } => x !== null && !!x.path);
+
+  /**
+   * Merges brand base colors with carousel and optional slide overrides.
+   * Priority: slideOverride > carouselOverride > brand base.
+   */
+  function mergeSlideColors(
+    brand: BrandColors,
+    carouselOverride?: Partial<BrandColors>,
+    slideOverride?: Partial<SlideColorSet>
+  ): Record<string, string> {
+    return {
+      primary:    slideOverride?.primary    ?? carouselOverride?.primary    ?? brand.primary,
+      secondary:  slideOverride?.secondary  ?? carouselOverride?.secondary  ?? brand.secondary,
+      accent:     slideOverride?.accent     ?? carouselOverride?.accent     ?? brand.accent,
+      background: slideOverride?.background ?? carouselOverride?.background ?? brand.background,
+      surface:    slideOverride?.surface    ?? carouselOverride?.surface    ?? brand.surface,
+    };
+  }
+
+  // Base brand colors (from effectiveBranding)
+  const brandColors = effectiveBranding?.colors;           // dark — what the AI generated with
+  const brandColorsLight = effectiveBranding?.colorsLight; // light — desired when theme is "light"
+
+  // Base colors for the current theme: dark brand OR light brand
+  const brandBaseForTheme = activeTheme === "dark"
+    ? brandColors
+    : (brandColorsLight ?? brandColors);
+
+  const carouselOverrideColors = activeTheme === "dark"
+    ? carousel.brandingOverride?.colors
+    : carousel.brandingOverride?.colorsLight;
+
+  // Color substitution for the currently active slide — uses per-slide stored theme (persists across reloads + export)
+  const activeSlideData = carousel.slides[activeSlide];
+  const activeSlidePreviewTheme: "dark" | "light" = activeSlideData?.styleOverride?.theme ?? activeTheme;
+  const previewBrandBase = activeSlidePreviewTheme === "dark" ? brandColors : (brandColorsLight ?? brandColors);
+  const previewCarouselOverride = activeSlidePreviewTheme === "dark"
+    ? carousel.brandingOverride?.colors
+    : carousel.brandingOverride?.colorsLight;
+  const previewSlideOverrideColors = activeSlideData
+    ? (activeSlidePreviewTheme === "dark"
+        ? activeSlideData.styleOverride?.colors
+        : activeSlideData.styleOverride?.colorsLight)
+    : undefined;
+
+  const activeSlideColorSub: ColorSubstitution | undefined = brandColors && previewBrandBase
     ? {
-        path: logoPath,
-        position: carousel.brandingOverride?.logoPosition ?? effectiveBranding?.logoPosition ?? "bottom-center",
-        height: carousel.brandingOverride?.logoHeight ?? effectiveBranding?.logoHeight ?? 72,
+        from: { ...(brandBaseForTheme ?? brandColors) },
+        to: mergeSlideColors(previewBrandBase, previewCarouselOverride, previewSlideOverrideColors),
       }
     : undefined;
+
+  // Resolved accent for CSS injection — drives .slide-accent class color
+  const activeSlideAccent =
+    previewSlideOverrideColors?.accent ??
+    previewCarouselOverride?.accent ??
+    previewBrandBase?.accent;
+
+  // Active slide logo: explicit override > theme-based variant > carousel default
+  const activeSlideTheme: "dark" | "light" = activeSlideData?.styleOverride?.theme ?? activeTheme;
+  const activeSlideAutoLogoPath = activeSlideTheme === "dark"
+    ? (effectiveBranding?.logoPathLight ?? effectiveBranding?.logoPath ?? null)
+    : (effectiveBranding?.logoPathDark  ?? effectiveBranding?.logoPath ?? null);
+  const activeSlideLogoPath = activeSlideData?.styleOverride?.logoPath ?? activeSlideAutoLogoPath;
+  const activeSlideLogoPosition = activeSlideData?.styleOverride?.logoPosition ?? logoPosition;
+  const activeSlideLogoHeight   = activeSlideData?.styleOverride?.logoHeight   ?? logoHeight;
+  const activeLogoConfig: LogoConfig | undefined = activeSlideLogoPath
+    ? { path: activeSlideLogoPath, position: activeSlideLogoPosition, height: activeSlideLogoHeight }
+    : undefined;
+
+  // Color substitution for filmstrip thumbnails (carousel-level only, no per-slide)
+  const filmstripColorSub: ColorSubstitution | undefined = brandColors && brandBaseForTheme
+    ? {
+        from: { ...(brandBaseForTheme ?? brandColors) },
+        to: mergeSlideColors(brandBaseForTheme, carouselOverrideColors),
+      }
+    : undefined;
+
+  // Font substitution for the active slide: slide override → carousel override → brand
+  const brandFonts = effectiveBranding?.fonts;
+  const overrideFonts = carousel.brandingOverride?.fonts;
+  const activeSlideFontOverride = activeSlideData?.styleOverride?.fonts;
+  const activeHeading = activeSlideFontOverride?.heading ?? overrideFonts?.heading ?? brandFonts?.heading;
+  const activeBody    = activeSlideFontOverride?.body    ?? overrideFonts?.body    ?? brandFonts?.body;
+  // Always include both roles so CSS injection can target .slide-title / .slide-body independently.
+  // applyFontSub skips pairs where from === to, so no-op substitutions cost nothing.
+  const fontSubstitution: FontSubstitution | undefined = brandFonts
+    ? {
+        heading: activeHeading ? { from: brandFonts.heading, to: activeHeading } : undefined,
+        body:    activeBody    ? { from: brandFonts.body,    to: activeBody    } : undefined,
+      }
+    : undefined;
+
+  // Per-slide substitutions for filmstrip — each slide uses its own persisted theme
+  const slideSubstitutions: Record<string, { colorSubstitution?: ColorSubstitution; fontSubstitution?: FontSubstitution; customBackground?: string }> =
+    brandColors && brandFonts
+      ? Object.fromEntries(carousel.slides.map((s) => {
+          const themeForSlide: "dark" | "light" = s.styleOverride?.theme ?? activeTheme;
+          const baseForSlide  = themeForSlide === "dark" ? brandColors : (brandColorsLight ?? brandColors);
+          const carOvForSlide = themeForSlide === "dark"
+            ? carousel.brandingOverride?.colors
+            : carousel.brandingOverride?.colorsLight;
+          const sColorOv = themeForSlide === "dark" ? s.styleOverride?.colors : s.styleOverride?.colorsLight;
+          const sFonts = s.styleOverride?.fonts;
+          const sHeading = sFonts?.heading ?? overrideFonts?.heading ?? brandFonts.heading;
+          const sBody    = sFonts?.body    ?? overrideFonts?.body    ?? brandFonts.body;
+          const mergedForSlide = baseForSlide
+            ? mergeSlideColors(baseForSlide, carOvForSlide, sColorOv)
+            : undefined;
+          return [s.id, {
+            colorSubstitution: baseForSlide ? {
+              from: { ...(brandBaseForTheme ?? brandColors) },
+              to: mergedForSlide!,
+            } : undefined,
+            fontSubstitution: {
+              heading: { from: brandFonts.heading, to: sHeading },
+              body:    { from: brandFonts.body,    to: sBody    },
+            },
+            customBackground: s.styleOverride?.customBackground,
+            accentOverride: mergedForSlide?.accent,
+          }];
+        }))
+      : {};
+
+  // Per-slide logo configs for filmstrip thumbnails.
+  // Each slide uses its own position/height overrides; path comes from explicit override or theme-based variant.
+  const slideLogoConfigs: Record<string, LogoConfig> = Object.fromEntries(
+    carousel.slides.flatMap((s) => {
+      const sLogoPosition = s.styleOverride?.logoPosition ?? logoPosition;
+      const sLogoHeight   = s.styleOverride?.logoHeight   ?? logoHeight;
+      const slideTheme: "dark" | "light" = s.styleOverride?.theme ?? activeTheme;
+      const themeBasedPath = slideTheme === "dark"
+        ? (effectiveBranding?.logoPathLight ?? effectiveBranding?.logoPath ?? null)
+        : (effectiveBranding?.logoPathDark  ?? effectiveBranding?.logoPath ?? null);
+      const sLogoPath = s.styleOverride?.logoPath ?? themeBasedPath;
+      if (!sLogoPath) return [];
+      // Skip if identical to the carousel-default logoConfig (SlideFilmstrip will use the default)
+      if (
+        sLogoPath === logoConfig?.path &&
+        sLogoPosition === logoPosition &&
+        sLogoHeight === logoHeight
+      ) return [];
+      return [[s.id, { path: sLogoPath, position: sLogoPosition, height: sLogoHeight }]];
+    })
+  );
+
 
   return (
     <div className="h-full flex flex-col">
@@ -292,7 +465,11 @@ export default function CarouselEditorPage({ params }: PageProps) {
         aspectRatio={carousel.aspectRatio}
         activeIndex={activeSlide}
         onActiveChange={setActiveSlide}
-        logoConfig={logoConfig}
+        logoConfig={activeLogoConfig}
+        colorSubstitution={activeSlideColorSub}
+        fontSubstitution={fontSubstitution}
+        customBackground={activeSlideData?.styleOverride?.customBackground}
+        accentOverride={activeSlideAccent}
       />
 
       <ConfirmDialog
@@ -400,7 +577,11 @@ export default function CarouselEditorPage({ params }: PageProps) {
               <Button
                 variant={showStylePanel ? "outline" : "ghost"}
                 size="sm"
-                onClick={() => setShowStylePanel((v) => !v)}
+                onClick={() => setShowStylePanel((v) => {
+                const next = !v;
+                localStorage.setItem("cs-style-open", next ? "1" : "0");
+                return next;
+              })}
                 className={showStylePanel ? "border-accent text-accent" : "text-muted-foreground"}
                 aria-label={t("postStyle")}
                 title={t("postStyle")}
@@ -467,7 +648,11 @@ export default function CarouselEditorPage({ params }: PageProps) {
             showSafeZones={showSafeZones}
             isPost={carousel.kind === "post"}
             isGenerating={isGenerating}
-            logoConfig={logoConfig}
+            logoConfig={activeLogoConfig}
+            colorSubstitution={activeSlideColorSub}
+            fontSubstitution={fontSubstitution}
+            customBackground={activeSlideData?.styleOverride?.customBackground}
+            accentOverride={activeSlideAccent}
           />
         </div>
 
@@ -488,8 +673,11 @@ export default function CarouselEditorPage({ params }: PageProps) {
             brandColorsLight={effectiveBranding.colorsLight}
             brandFonts={effectiveBranding.fonts}
             override={carousel.brandingOverride ?? {}}
-            onChange={handleBrandingOverrideChange}
             onClose={() => setShowStylePanel(false)}
+            activeSlide={activeSlideData}
+            onSlideOverrideChange={handleSlideOverrideChange}
+            initialSlideTheme={activeSlidePreviewTheme}
+            brandLogos={brandLogos}
           />
         )}
       </div>
@@ -506,6 +694,8 @@ export default function CarouselEditorPage({ params }: PageProps) {
           onReorderSlides={handleReorderSlides}
           isGenerating={isGenerating}
           logoConfig={logoConfig}
+          slideLogoConfigs={slideLogoConfigs}
+          slideSubstitutions={slideSubstitutions}
         />
       )}
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useEffect, useState, useCallback } from "react";
-import { wrapSlideHtml, type LogoConfig } from "@/lib/slide-html";
+import { wrapSlideHtml, type LogoConfig, type ColorSubstitution, type FontSubstitution } from "@/lib/slide-html";
 import { SafeZoneOverlay } from "./SafeZoneOverlay";
 import type { AspectRatio } from "@/types/carousel";
 import { DIMENSIONS } from "@/types/carousel";
@@ -13,6 +13,10 @@ interface SlideRendererProps {
   style?: React.CSSProperties;
   showSafeZones?: boolean;
   logoConfig?: LogoConfig;
+  colorSubstitution?: ColorSubstitution;
+  fontSubstitution?: FontSubstitution;
+  customBackground?: string;
+  accentOverride?: string;
 }
 
 export function SlideRenderer({
@@ -22,14 +26,18 @@ export function SlideRenderer({
   style,
   showSafeZones = false,
   logoConfig,
+  colorSubstitution,
+  fontSubstitution,
+  customBackground,
+  accentOverride,
 }: SlideRendererProps) {
   const outerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
   const { width: slideW, height: slideH } = DIMENSIONS[aspectRatio];
 
   const srcDoc = useMemo(
-    () => wrapSlideHtml(html, aspectRatio, { logoConfig }),
-    [html, aspectRatio, logoConfig]
+    () => wrapSlideHtml(html, aspectRatio, { logoConfig, colorSubstitution, fontSubstitution, customBackground, accentOverride }),
+    [html, aspectRatio, logoConfig, colorSubstitution, fontSubstitution, customBackground, accentOverride]
   );
 
   const measure = useCallback(() => {

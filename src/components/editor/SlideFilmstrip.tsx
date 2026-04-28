@@ -19,9 +19,16 @@ import { Button } from "@/components/ui/button";
 import { SlideRenderer } from "./SlideRenderer";
 import { useI18n } from "@/lib/i18n/context";
 import type { Slide, AspectRatio } from "@/types/carousel";
-import type { LogoConfig } from "@/lib/slide-html";
+import type { LogoConfig, ColorSubstitution, FontSubstitution } from "@/lib/slide-html";
 import { DIMENSIONS, MAX_SLIDES } from "@/types/carousel";
 import { cn } from "@/lib/utils";
+
+interface SlideSubstitution {
+  colorSubstitution?: ColorSubstitution;
+  fontSubstitution?: FontSubstitution;
+  customBackground?: string;
+  accentOverride?: string;
+}
 
 interface SlideFilmstripProps {
   slides: Slide[];
@@ -34,6 +41,12 @@ interface SlideFilmstripProps {
   onReorderSlides?: (slideIds: string[]) => void;
   isGenerating?: boolean;
   logoConfig?: LogoConfig;
+  /** Per-slide logo overrides (keyed by slide.id). Falls back to logoConfig if not present. */
+  slideLogoConfigs?: Record<string, LogoConfig>;
+  /** Per-slide color+font substitutions. If provided, replaces the old shared props. */
+  slideSubstitutions?: Record<string, SlideSubstitution>;
+  colorSubstitution?: ColorSubstitution;
+  fontSubstitution?: FontSubstitution;
 }
 
 function SortableSlideThumb({
@@ -47,6 +60,10 @@ function SortableSlideThumb({
   onDelete,
   onUndo,
   logoConfig,
+  colorSubstitution,
+  fontSubstitution,
+  customBackground,
+  accentOverride,
 }: {
   slide: Slide;
   index: number;
@@ -58,6 +75,10 @@ function SortableSlideThumb({
   onDelete?: () => void;
   onUndo?: () => void;
   logoConfig?: LogoConfig;
+  colorSubstitution?: ColorSubstitution;
+  fontSubstitution?: FontSubstitution;
+  customBackground?: string;
+  accentOverride?: string;
 }) {
   const { t } = useI18n();
   const {
@@ -90,7 +111,7 @@ function SortableSlideThumb({
       <button
         onClick={onSelect}
         className={cn(
-          "block rounded-lg overflow-hidden transition-[border-color,box-shadow] duration-200 border-2",
+          "block rounded-lg overflow-hidden transition-[border-color,box-shadow] duration-200 border-2 relative",
           isActive
             ? "border-accent shadow-md ring-2 ring-accent/20"
             : "border-border hover:border-muted-foreground/50"
@@ -103,7 +124,19 @@ function SortableSlideThumb({
           aspectRatio={aspectRatio}
           className="w-full h-full"
           logoConfig={logoConfig}
+          colorSubstitution={colorSubstitution}
+          fontSubstitution={fontSubstitution}
+          customBackground={customBackground}
+          accentOverride={accentOverride}
         />
+        {/* Per-slide override indicator dot */}
+        {slide.styleOverride && (
+          Object.values(slide.styleOverride.colors ?? {}).some(Boolean) ||
+          Object.values(slide.styleOverride.colorsLight ?? {}).some(Boolean)
+        ) && (
+          <div className="absolute top-1 left-1 h-1.5 w-1.5 rounded-full bg-accent pointer-events-none" />
+        )}
+
       </button>
 
       {/* Hover actions */}
@@ -157,6 +190,10 @@ export function SlideFilmstrip({
   onReorderSlides,
   isGenerating,
   logoConfig,
+  slideLogoConfigs,
+  slideSubstitutions,
+  colorSubstitution,
+  fontSubstitution,
 }: SlideFilmstripProps) {
   const { t } = useI18n();
   const { width: slideW, height: slideH } = DIMENSIONS[aspectRatio];
@@ -216,7 +253,11 @@ export function SlideFilmstrip({
                 onSelect={() => onActiveChange(index)}
                 onDelete={onDeleteSlide ? () => onDeleteSlide(slide.id) : undefined}
                 onUndo={onUndoSlide ? () => onUndoSlide(slide.id) : undefined}
-                logoConfig={logoConfig}
+                logoConfig={slideLogoConfigs?.[slide.id] ?? logoConfig}
+                colorSubstitution={slideSubstitutions?.[slide.id]?.colorSubstitution ?? colorSubstitution}
+                fontSubstitution={slideSubstitutions?.[slide.id]?.fontSubstitution ?? fontSubstitution}
+                customBackground={slideSubstitutions?.[slide.id]?.customBackground}
+                accentOverride={slideSubstitutions?.[slide.id]?.accentOverride}
               />
             ))}
           </SortableContext>

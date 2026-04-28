@@ -34,12 +34,30 @@ export interface PublishHistoryEntry {
   error?: string;
 }
 
+export type SlideColorSet = {
+  primary?: string;
+  secondary?: string;
+  accent?: string;
+  background?: string;
+  surface?: string;
+};
+
 export interface Slide {
   id: string;
   html: string;
   previousVersions: string[];
   order: number;
   notes: string;
+  styleOverride?: {
+    theme?: "dark" | "light";
+    colors?: SlideColorSet;
+    colorsLight?: SlideColorSet;
+    fonts?: { heading?: string; body?: string };
+    logoPath?: string;
+    logoPosition?: LogoPosition;
+    logoHeight?: number;
+    customBackground?: string;
+  };
 }
 
 export interface ReferenceImage {

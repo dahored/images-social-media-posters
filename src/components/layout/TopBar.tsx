@@ -174,15 +174,23 @@ export function TopBar({
             className="font-semibold text-sm bg-transparent border-b-2 border-accent outline-none py-0.5 min-w-30"
           />
         ) : (
-          <Link href="/" className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity">
+          title ? (
             <span
               className={`font-semibold text-sm truncate ${editable ? "cursor-pointer hover:text-accent transition-colors" : ""}`}
               onClick={() => editable && startEditing()}
               title={editable ? t("clickToRename") : undefined}
             >
-              {title || t("contentStudio")}
+              {title}
             </span>
-          </Link>
+          ) : (
+            <Link href="/" className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity">
+              <span
+                className={`font-semibold text-sm truncate`}
+              >
+                {t("contentStudio")}
+              </span>
+            </Link>
+          )
         )}
       </div>
       <div className="flex-1" />
