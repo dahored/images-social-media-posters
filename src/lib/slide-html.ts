@@ -25,26 +25,59 @@ export interface FontSubstitution {
   body?: { from: string; to: string };
 }
 
+function hexToRgb(hex: string): [number, number, number] | null {
+  const clean = hex.replace("#", "");
+  if (clean.length !== 6) return null;
+  return [parseInt(clean.slice(0, 2), 16), parseInt(clean.slice(2, 4), 16), parseInt(clean.slice(4, 6), 16)];
+}
+
 /**
- * Replaces each color in `subs.from` with its counterpart in `subs.to`.
- * Uses a SINGLE regex pass so that swapped colors (e.g. light/dark mode) don't
- * cascade: replacing A→B then B→A sequentially would turn everything into A again.
+ * Replaces brand colors in `subs.from` with counterparts in `subs.to`.
+ *
+ * Two-pass, cascade-free approach:
+ *  Pass 1 — hex values (#rrggbb) in a single regex so swapped colors don't overwrite each other.
+ *  Pass 2 — rgba/rgb(...) using the same RGB components, preserving the alpha channel.
+ *            This handles decorative uses like `rgba(255,255,255,0.04)` that wouldn't match hex.
  */
 function applyColorSubstitution(html: string, subs: ColorSubstitution): string {
-  // Build map: lowercase(from) → replacement
-  const map = new Map<string, string>();
-  for (const [key, replacement] of Object.entries(subs.to)) {
-    const fromColor = subs.from[key];
-    if (!fromColor || fromColor.toLowerCase() === replacement.toLowerCase()) continue;
-    map.set(fromColor.toLowerCase(), replacement.toLowerCase());
-  }
-  if (map.size === 0) return html;
+  const hexMap = new Map<string, string>();
+  const rgbPairs: Array<{ fromRgb: [number, number, number]; toRgb: [number, number, number] }> = [];
 
-  // Match any of the source colors (case-insensitive, single pass — no cascade)
-  const pattern = Array.from(map.keys())
+  for (const [key, toHex] of Object.entries(subs.to)) {
+    const fromHex = subs.from[key];
+    if (!fromHex || fromHex.toLowerCase() === toHex.toLowerCase()) continue;
+    hexMap.set(fromHex.toLowerCase(), toHex.toLowerCase());
+    const fromRgb = hexToRgb(fromHex);
+    const toRgb = hexToRgb(toHex);
+    if (fromRgb && toRgb) rgbPairs.push({ fromRgb, toRgb });
+  }
+
+  if (hexMap.size === 0) return html;
+
+  // Pass 1: hex replacement (single pass — no cascade between swapped pairs)
+  const hexPattern = Array.from(hexMap.keys())
     .map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("|");
-  return html.replace(new RegExp(pattern, "gi"), (match) => map.get(match.toLowerCase()) ?? match);
+  let result = html.replace(new RegExp(hexPattern, "gi"), (m) => hexMap.get(m.toLowerCase()) ?? m);
+
+  // Pass 2: rgba/rgb replacement — different syntax from hex, so no cascade with pass 1
+  if (rgbPairs.length > 0) {
+    const rgbaPattern = rgbPairs
+      .map(({ fromRgb: [r, g, b] }) => `rgba?\\(\\s*${r}\\s*,\\s*${g}\\s*,\\s*${b}\\s*(?:,\\s*([^)]+))?\\)`)
+      .join("|");
+    result = result.replace(new RegExp(rgbaPattern, "gi"), (match) => {
+      const m = match.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([^)]+))?\s*\)/i);
+      if (!m) return match;
+      const [r, g, b] = [+m[1], +m[2], +m[3]];
+      const alpha = m[4];
+      const rep = rgbPairs.find((p) => p.fromRgb[0] === r && p.fromRgb[1] === g && p.fromRgb[2] === b);
+      if (!rep) return match;
+      const [tr, tg, tb] = rep.toRgb;
+      return alpha !== undefined ? `rgba(${tr},${tg},${tb},${alpha.trim()})` : `rgb(${tr},${tg},${tb})`;
+    });
+  }
+
+  return result;
 }
 
 /**
