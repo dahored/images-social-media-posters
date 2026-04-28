@@ -9,6 +9,32 @@ export interface LogoConfig {
 }
 
 /**
+ * Describes a color substitution to apply to slide HTML at render time.
+ * `from` maps color role keys to their original hex values (lowercase, e.g. "#1a1a2e").
+ * `to` maps the same keys to replacement hex values.
+ * Only pairs where from[key] !== to[key] are substituted.
+ */
+export interface ColorSubstitution {
+  from: Record<string, string>;
+  to: Record<string, string>;
+}
+
+/**
+ * Replaces each color in `subs.from` with its counterpart in `subs.to`.
+ * Handles both lowercase and uppercase hex notation.
+ */
+function applyColorSubstitution(html: string, subs: ColorSubstitution): string {
+  let result = html;
+  for (const [key, replacement] of Object.entries(subs.to)) {
+    const fromColor = subs.from[key];
+    if (!fromColor || fromColor.toLowerCase() === replacement.toLowerCase()) continue;
+    result = result.replaceAll(fromColor.toLowerCase(), replacement.toLowerCase());
+    result = result.replaceAll(fromColor.toUpperCase(), replacement.toUpperCase());
+  }
+  return result;
+}
+
+/**
  * Extract Google Font family names from slide HTML.
  * Looks for font-family declarations in inline styles and <style> tags.
  */
@@ -49,10 +75,17 @@ export function extractFontFamilies(html: string): string[] {
 export function wrapSlideHtml(
   slideHtml: string,
   aspectRatio: AspectRatio,
-  options?: { inlineFontCss?: string; logoConfig?: LogoConfig }
+  options?: { inlineFontCss?: string; logoConfig?: LogoConfig; colorSubstitution?: ColorSubstitution }
 ): string {
   const { width, height } = DIMENSIONS[aspectRatio];
-  const fontFamilies = extractFontFamilies(slideHtml);
+
+  // Apply color substitution BEFORE any other processing
+  let processedHtml = slideHtml;
+  if (options?.colorSubstitution) {
+    processedHtml = applyColorSubstitution(processedHtml, options.colorSubstitution);
+  }
+
+  const fontFamilies = extractFontFamilies(processedHtml);
 
   let fontBlock = "";
   if (options?.inlineFontCss) {
@@ -68,7 +101,7 @@ export function wrapSlideHtml(
   }
 
   // Strip any logo the AI may have included in the slide HTML to avoid duplicates
-  let cleanSlideHtml = slideHtml;
+  let cleanSlideHtml = processedHtml;
   if (options?.logoConfig && options.logoConfig.path !== "none") {
     // Remove img tags whose src exactly matches the logo path (AI-added logo)
     const escapedPath = options.logoConfig.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

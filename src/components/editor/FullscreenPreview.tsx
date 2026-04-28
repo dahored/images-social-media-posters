@@ -6,7 +6,7 @@ import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SlideRenderer } from "./SlideRenderer";
 import type { Slide, AspectRatio } from "@/types/carousel";
-import type { LogoConfig } from "@/lib/slide-html";
+import type { LogoConfig, ColorSubstitution } from "@/lib/slide-html";
 
 interface FullscreenPreviewProps {
   open: boolean;
@@ -16,6 +16,7 @@ interface FullscreenPreviewProps {
   activeIndex: number;
   onActiveChange: (index: number) => void;
   logoConfig?: LogoConfig;
+  colorSubstitution?: ColorSubstitution;
 }
 
 export function FullscreenPreview({
@@ -26,6 +27,7 @@ export function FullscreenPreview({
   activeIndex,
   onActiveChange,
   logoConfig,
+  colorSubstitution,
 }: FullscreenPreviewProps) {
   const slide = slides[activeIndex];
 
@@ -79,6 +81,7 @@ export function FullscreenPreview({
               aspectRatio={aspectRatio}
               style={{ width: "100%", height: "100%", maxWidth: 800 }}
               logoConfig={logoConfig}
+              colorSubstitution={colorSubstitution}
             />
           )}
 

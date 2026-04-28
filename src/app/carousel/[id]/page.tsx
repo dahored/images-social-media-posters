@@ -17,9 +17,10 @@ import { SafeZoneOverlay } from "@/components/editor/SafeZoneOverlay";
 import { FullscreenPreview } from "@/components/editor/FullscreenPreview";
 import { StyleOverridePanel } from "@/components/editor/StyleOverridePanel";
 import { useI18n } from "@/lib/i18n/context";
-import type { Carousel, AspectRatio, CarouselBrandingOverride } from "@/types/carousel";
-import type { LogoConfig } from "@/lib/slide-html";
+import type { Carousel, AspectRatio, CarouselBrandingOverride, Slide, SlideColorSet } from "@/types/carousel";
+import type { LogoConfig, ColorSubstitution } from "@/lib/slide-html";
 import type { EffectiveBranding } from "@/types/account";
+import type { BrandColors } from "@/types/brand";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -231,6 +232,15 @@ export default function CarouselEditorPage({ params }: PageProps) {
     fetchCarousel();
   }, [id, fetchCarousel]);
 
+  const handleSlideOverrideChange = useCallback(async (slideId: string, override: NonNullable<Slide["styleOverride"]>) => {
+    await fetch(`/api/carousels/${id}/slides/${slideId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ styleOverride: override }),
+    });
+    fetchCarousel();
+  }, [id, fetchCarousel]);
+
   if (notFound) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-4">
@@ -266,6 +276,53 @@ export default function CarouselEditorPage({ params }: PageProps) {
       }
     : undefined;
 
+  /**
+   * Merges brand base colors with carousel and optional slide overrides.
+   * Priority: slideOverride > carouselOverride > brand base.
+   */
+  function mergeSlideColors(
+    brand: BrandColors,
+    carouselOverride?: Partial<BrandColors>,
+    slideOverride?: Partial<SlideColorSet>
+  ): Record<string, string> {
+    return {
+      primary:    slideOverride?.primary    ?? carouselOverride?.primary    ?? brand.primary,
+      secondary:  slideOverride?.secondary  ?? carouselOverride?.secondary  ?? brand.secondary,
+      accent:     slideOverride?.accent     ?? carouselOverride?.accent     ?? brand.accent,
+      background: slideOverride?.background ?? carouselOverride?.background ?? brand.background,
+      surface:    slideOverride?.surface    ?? carouselOverride?.surface    ?? brand.surface,
+    };
+  }
+
+  // Base brand colors (from effectiveBranding)
+  const brandColors = effectiveBranding?.colors;
+  const carouselOverrideColors = activeTheme === "dark"
+    ? carousel.brandingOverride?.colors
+    : carousel.brandingOverride?.colorsLight;
+
+  // Color substitution for the currently active slide (includes per-slide override)
+  const activeSlideData = carousel.slides[activeSlide];
+  const slideOverrideColors = activeSlideData
+    ? (activeTheme === "dark"
+        ? activeSlideData.styleOverride?.colors
+        : activeSlideData.styleOverride?.colorsLight)
+    : undefined;
+
+  const activeSlideColorSub: ColorSubstitution | undefined = brandColors
+    ? {
+        from: { ...brandColors },
+        to: mergeSlideColors(brandColors, carouselOverrideColors, slideOverrideColors),
+      }
+    : undefined;
+
+  // Color substitution for filmstrip thumbnails (carousel-level only, no per-slide)
+  const filmstripColorSub: ColorSubstitution | undefined = brandColors
+    ? {
+        from: { ...brandColors },
+        to: mergeSlideColors(brandColors, carouselOverrideColors),
+      }
+    : undefined;
+
   return (
     <div className="h-full flex flex-col">
       <TopBar
@@ -293,6 +350,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
         activeIndex={activeSlide}
         onActiveChange={setActiveSlide}
         logoConfig={logoConfig}
+        colorSubstitution={activeSlideColorSub}
       />
 
       <ConfirmDialog
@@ -468,6 +526,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
             isPost={carousel.kind === "post"}
             isGenerating={isGenerating}
             logoConfig={logoConfig}
+            colorSubstitution={activeSlideColorSub}
           />
         </div>
 
@@ -490,6 +549,8 @@ export default function CarouselEditorPage({ params }: PageProps) {
             override={carousel.brandingOverride ?? {}}
             onChange={handleBrandingOverrideChange}
             onClose={() => setShowStylePanel(false)}
+            activeSlide={carousel.kind !== "post" ? activeSlideData : undefined}
+            onSlideOverrideChange={carousel.kind !== "post" ? handleSlideOverrideChange : undefined}
           />
         )}
       </div>
@@ -506,6 +567,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
           onReorderSlides={handleReorderSlides}
           isGenerating={isGenerating}
           logoConfig={logoConfig}
+          colorSubstitution={filmstripColorSub}
         />
       )}
     </div>

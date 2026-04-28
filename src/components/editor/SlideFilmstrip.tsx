@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { SlideRenderer } from "./SlideRenderer";
 import { useI18n } from "@/lib/i18n/context";
 import type { Slide, AspectRatio } from "@/types/carousel";
-import type { LogoConfig } from "@/lib/slide-html";
+import type { LogoConfig, ColorSubstitution } from "@/lib/slide-html";
 import { DIMENSIONS, MAX_SLIDES } from "@/types/carousel";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +34,7 @@ interface SlideFilmstripProps {
   onReorderSlides?: (slideIds: string[]) => void;
   isGenerating?: boolean;
   logoConfig?: LogoConfig;
+  colorSubstitution?: ColorSubstitution;
 }
 
 function SortableSlideThumb({
@@ -47,6 +48,7 @@ function SortableSlideThumb({
   onDelete,
   onUndo,
   logoConfig,
+  colorSubstitution,
 }: {
   slide: Slide;
   index: number;
@@ -58,6 +60,7 @@ function SortableSlideThumb({
   onDelete?: () => void;
   onUndo?: () => void;
   logoConfig?: LogoConfig;
+  colorSubstitution?: ColorSubstitution;
 }) {
   const { t } = useI18n();
   const {
@@ -90,7 +93,7 @@ function SortableSlideThumb({
       <button
         onClick={onSelect}
         className={cn(
-          "block rounded-lg overflow-hidden transition-[border-color,box-shadow] duration-200 border-2",
+          "block rounded-lg overflow-hidden transition-[border-color,box-shadow] duration-200 border-2 relative",
           isActive
             ? "border-accent shadow-md ring-2 ring-accent/20"
             : "border-border hover:border-muted-foreground/50"
@@ -103,7 +106,15 @@ function SortableSlideThumb({
           aspectRatio={aspectRatio}
           className="w-full h-full"
           logoConfig={logoConfig}
+          colorSubstitution={colorSubstitution}
         />
+        {/* Per-slide override indicator dot */}
+        {slide.styleOverride && (
+          Object.values(slide.styleOverride.colors ?? {}).some(Boolean) ||
+          Object.values(slide.styleOverride.colorsLight ?? {}).some(Boolean)
+        ) && (
+          <div className="absolute top-1 left-1 h-1.5 w-1.5 rounded-full bg-accent pointer-events-none" />
+        )}
       </button>
 
       {/* Hover actions */}
@@ -157,6 +168,7 @@ export function SlideFilmstrip({
   onReorderSlides,
   isGenerating,
   logoConfig,
+  colorSubstitution,
 }: SlideFilmstripProps) {
   const { t } = useI18n();
   const { width: slideW, height: slideH } = DIMENSIONS[aspectRatio];
@@ -217,6 +229,7 @@ export function SlideFilmstrip({
                 onDelete={onDeleteSlide ? () => onDeleteSlide(slide.id) : undefined}
                 onUndo={onUndoSlide ? () => onUndoSlide(slide.id) : undefined}
                 logoConfig={logoConfig}
+                colorSubstitution={colorSubstitution}
               />
             ))}
           </SortableContext>
