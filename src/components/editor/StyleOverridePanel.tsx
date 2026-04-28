@@ -160,7 +160,7 @@ export function StyleOverridePanel({
               Restaurar marca
             </button>
           )}
-          {panelMode === "slide" && hasSlideOverrides(activeSlide) && (
+          {panelMode === "slide" && (
             <button
               onClick={handleResetSlideOverride}
               className="text-xs text-muted-foreground hover:text-accent transition-colors cursor-pointer"

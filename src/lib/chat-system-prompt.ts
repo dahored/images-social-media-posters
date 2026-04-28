@@ -210,6 +210,8 @@ Each slide is BODY-LEVEL HTML only. No <!DOCTYPE>, <html>, <head>, or <body> tag
 ## Design intelligence
 
 ### Typography
+- heading-font ("${effectiveFonts.heading}"): use for ALL titles, h1/h2, hook text, display numbers, CTAs
+- body-font ("${effectiveFonts.body}"): use for ALL body copy, paragraphs, bullet points, descriptions, labels, captions — never use heading-font for these
 - Hook slides: 64-96px bold heading, max 8 words
 - Content slides: 36-48px heading, 24-28px body
 - Max 2 font families per carousel

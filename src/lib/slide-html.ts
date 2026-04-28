@@ -84,6 +84,21 @@ function applyFontSub(html: string, sub: { from: string; to: string }): string {
   return html.replace(new RegExp(escaped, "gi"), sub.to);
 }
 
+/**
+ * Applies color and font substitutions to raw slide HTML without wrapping it.
+ * Use this before calling extractFontFamilies() so font extraction uses final names.
+ */
+export function preprocessSlideHtml(
+  html: string,
+  options: { colorSubstitution?: ColorSubstitution; fontSubstitution?: FontSubstitution }
+): string {
+  let result = html;
+  if (options.colorSubstitution) result = applyColorSubstitution(result, options.colorSubstitution);
+  if (options.fontSubstitution?.heading) result = applyFontSub(result, options.fontSubstitution.heading);
+  if (options.fontSubstitution?.body) result = applyFontSub(result, options.fontSubstitution.body);
+  return result;
+}
+
 export function wrapSlideHtml(
   slideHtml: string,
   aspectRatio: AspectRatio,

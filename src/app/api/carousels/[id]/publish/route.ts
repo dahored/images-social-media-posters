@@ -4,7 +4,9 @@ import { exportAllSlides } from "@/lib/export-slides";
 import { sendPhoto, sendMediaGroup, buildCaption, isTelegramConfigured, getDefaultChatId } from "@/lib/telegram";
 import { getAccount, getEffectiveBranding } from "@/lib/accounts";
 import type { PublishHistoryEntry } from "@/types/carousel";
-import type { LogoConfig } from "@/lib/slide-html";
+import type { LogoConfig, ColorSubstitution, FontSubstitution } from "@/lib/slide-html";
+import type { Slide } from "@/types/carousel";
+import type { BrandColors } from "@/types/brand";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,7 +74,54 @@ export async function POST(
           }
         : undefined;
 
-      const pngBuffers = await exportAllSlides(carousel.slides, carousel.aspectRatio, logoConfig);
+      const brandDark = branding?.colors;
+      const brandLight = branding?.colorsLight;
+      const activeThemePub = carousel.brandingOverride?.theme ?? "dark";
+      const brandBaseForTheme = activeThemePub === "dark" ? brandDark : (brandLight ?? brandDark);
+      const carouselColorOverride = activeThemePub === "dark"
+        ? carousel.brandingOverride?.colors
+        : carousel.brandingOverride?.colorsLight;
+      const overrideFonts = carousel.brandingOverride?.fonts;
+      const brandFonts = branding?.fonts;
+      const fontSubstitutionPub: FontSubstitution | undefined = brandFonts
+        ? {
+            heading: overrideFonts?.heading ? { from: brandFonts.heading, to: overrideFonts.heading } : undefined,
+            body: overrideFonts?.body ? { from: brandFonts.body, to: overrideFonts.body } : undefined,
+          }
+        : undefined;
+
+      function mergeColorsPub(
+        base: BrandColors,
+        carouselOv?: Partial<BrandColors>,
+        slideOv?: Partial<BrandColors>
+      ): Record<string, string> {
+        return {
+          primary:    slideOv?.primary    ?? carouselOv?.primary    ?? base.primary,
+          secondary:  slideOv?.secondary  ?? carouselOv?.secondary  ?? base.secondary,
+          accent:     slideOv?.accent     ?? carouselOv?.accent     ?? base.accent,
+          background: slideOv?.background ?? carouselOv?.background ?? base.background,
+          surface:    slideOv?.surface    ?? carouselOv?.surface    ?? base.surface,
+        };
+      }
+
+      function getSlideOverridesPub(slide: Slide) {
+        if (!brandDark || !brandBaseForTheme) return undefined;
+        const slideColorOv = activeThemePub === "dark"
+          ? slide.styleOverride?.colors
+          : slide.styleOverride?.colorsLight;
+        const colorSubstitution: ColorSubstitution = {
+          from: { ...brandDark },
+          to: mergeColorsPub(brandBaseForTheme, carouselColorOverride, slideColorOv),
+        };
+        return { colorSubstitution, fontSubstitution: fontSubstitutionPub };
+      }
+
+      const pngBuffers = await exportAllSlides(
+        carousel.slides,
+        carousel.aspectRatio,
+        logoConfig,
+        branding ? getSlideOverridesPub : undefined
+      );
       const buffers = pngBuffers.map((p) => p.buffer);
       const caption = buildCaption(carousel.caption, carousel.hashtags);
 

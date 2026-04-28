@@ -57,7 +57,9 @@ export default function CarouselEditorPage({ params }: PageProps) {
   const [contentSidebarOpen, setContentSidebarOpen] = useState(() =>
     typeof window !== "undefined" ? localStorage.getItem("cs-info-open") !== "0" : true
   );
-  const [showStylePanel, setShowStylePanel] = useState(false);
+  const [showStylePanel, setShowStylePanel] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("cs-style-open") === "1" : false
+  );
   const [effectiveBranding, setEffectiveBranding] = useState<EffectiveBranding | null>(null);
 
   const [confirmState, setConfirmState] = useState<{
@@ -301,7 +303,14 @@ export default function CarouselEditorPage({ params }: PageProps) {
   }
 
   // Base brand colors (from effectiveBranding)
-  const brandColors = effectiveBranding?.colors;
+  const brandColors = effectiveBranding?.colors;           // dark — what the AI generated with
+  const brandColorsLight = effectiveBranding?.colorsLight; // light — desired when theme is "light"
+
+  // Base colors for the current theme: dark brand OR light brand
+  const brandBaseForTheme = activeTheme === "dark"
+    ? brandColors
+    : (brandColorsLight ?? brandColors);
+
   const carouselOverrideColors = activeTheme === "dark"
     ? carousel.brandingOverride?.colors
     : carousel.brandingOverride?.colorsLight;
@@ -314,18 +323,18 @@ export default function CarouselEditorPage({ params }: PageProps) {
         : activeSlideData.styleOverride?.colorsLight)
     : undefined;
 
-  const activeSlideColorSub: ColorSubstitution | undefined = brandColors
+  const activeSlideColorSub: ColorSubstitution | undefined = brandColors && brandBaseForTheme
     ? {
         from: { ...brandColors },
-        to: mergeSlideColors(brandColors, carouselOverrideColors, slideOverrideColors),
+        to: mergeSlideColors(brandBaseForTheme, carouselOverrideColors, slideOverrideColors),
       }
     : undefined;
 
   // Color substitution for filmstrip thumbnails (carousel-level only, no per-slide)
-  const filmstripColorSub: ColorSubstitution | undefined = brandColors
+  const filmstripColorSub: ColorSubstitution | undefined = brandColors && brandBaseForTheme
     ? {
         from: { ...brandColors },
-        to: mergeSlideColors(brandColors, carouselOverrideColors),
+        to: mergeSlideColors(brandBaseForTheme, carouselOverrideColors),
       }
     : undefined;
 
@@ -475,7 +484,11 @@ export default function CarouselEditorPage({ params }: PageProps) {
               <Button
                 variant={showStylePanel ? "outline" : "ghost"}
                 size="sm"
-                onClick={() => setShowStylePanel((v) => !v)}
+                onClick={() => setShowStylePanel((v) => {
+                const next = !v;
+                localStorage.setItem("cs-style-open", next ? "1" : "0");
+                return next;
+              })}
                 className={showStylePanel ? "border-accent text-accent" : "text-muted-foreground"}
                 aria-label={t("postStyle")}
                 title={t("postStyle")}

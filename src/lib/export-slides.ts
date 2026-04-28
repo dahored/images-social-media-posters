@@ -2,7 +2,7 @@ import puppeteer, { type Browser } from "puppeteer";
 import { readFile } from "fs/promises";
 import path from "path";
 import sharp from "sharp";
-import { wrapSlideHtml, extractFontFamilies, type LogoConfig } from "./slide-html";
+import { wrapSlideHtml, extractFontFamilies, preprocessSlideHtml, type LogoConfig, type ColorSubstitution, type FontSubstitution } from "./slide-html";
 import { getInlinedFontCSS } from "./fonts";
 import type { Slide, AspectRatio } from "@/types/carousel";
 import { DIMENSIONS } from "@/types/carousel";
@@ -80,21 +80,26 @@ async function inlineImagePath(imgPath: string): Promise<string> {
 export async function exportSlide(
   slide: Slide,
   aspectRatio: AspectRatio,
-  logoConfig?: LogoConfig
+  logoConfig?: LogoConfig,
+  colorSubstitution?: ColorSubstitution,
+  fontSubstitution?: FontSubstitution
 ): Promise<Buffer> {
   const { width, height } = DIMENSIONS[aspectRatio];
 
-  // Get inlined font CSS
-  const fontFamilies = extractFontFamilies(slide.html);
+  // Apply style overrides first so font extraction uses the final font names
+  const processedHtml = preprocessSlideHtml(slide.html, { colorSubstitution, fontSubstitution });
+
+  // Get inlined font CSS (after substitution so new font names are included)
+  const fontFamilies = extractFontFamilies(processedHtml);
   const inlinedFontCss = await getInlinedFontCSS(fontFamilies);
 
   // Inline images (including logo path if present)
-  const inlinedHtml = await inlineImages(slide.html);
+  const inlinedHtml = await inlineImages(processedHtml);
   const inlinedLogoConfig = logoConfig && logoConfig.path !== "none"
     ? { ...logoConfig, path: await inlineImagePath(logoConfig.path) }
     : logoConfig;
 
-  // Build self-contained HTML
+  // Build self-contained HTML (substitutions already applied — don't re-apply)
   const fullHtml = wrapSlideHtml(inlinedHtml, aspectRatio, {
     inlineFontCss: inlinedFontCss,
     logoConfig: inlinedLogoConfig,
@@ -139,14 +144,21 @@ export async function exportSlide(
   }
 }
 
+export type SlideExportOverrides = {
+  colorSubstitution?: ColorSubstitution;
+  fontSubstitution?: FontSubstitution;
+};
+
 /**
  * Export all slides of a carousel to PNG buffers.
  * Processes up to 3 slides concurrently.
+ * `getSlideOverrides` receives each slide and returns its color/font substitutions (optional).
  */
 export async function exportAllSlides(
   slides: Slide[],
   aspectRatio: AspectRatio,
   logoConfig?: LogoConfig,
+  getSlideOverrides?: (slide: Slide) => SlideExportOverrides | undefined,
   onProgress?: (current: number, total: number) => void
 ): Promise<{ name: string; buffer: Buffer }[]> {
   const results: { name: string; buffer: Buffer }[] = [];
@@ -157,7 +169,8 @@ export async function exportAllSlides(
     const batchResults = await Promise.all(
       batch.map(async (slide, batchIdx) => {
         const idx = i + batchIdx;
-        const buffer = await exportSlide(slide, aspectRatio, logoConfig);
+        const overrides = getSlideOverrides?.(slide);
+        const buffer = await exportSlide(slide, aspectRatio, logoConfig, overrides?.colorSubstitution, overrides?.fontSubstitution);
         onProgress?.(idx + 1, slides.length);
         return { name: `slide-${idx + 1}.png`, buffer };
       })
