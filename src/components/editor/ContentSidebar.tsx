@@ -164,7 +164,10 @@ export function ContentSidebar({
         {/* Caption */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-medium text-muted-foreground">{t("captionLabel")}</label>
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              {t("captionLabel")}
+              {generating && <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-accent border-t-transparent animate-spin" />}
+            </label>
             <button
               onClick={() => handleCopy("caption")}
               className="h-5 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
@@ -178,7 +181,8 @@ export function ContentSidebar({
             onChange={(e) => handleCaptionChange(e.target.value)}
             placeholder={t("writeCaptionHere")}
             rows={6}
-            className="w-full resize-none rounded-lg border border-border bg-muted px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            disabled={generating}
+            className={`w-full resize-none rounded-lg border border-border bg-muted px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-opacity ${generating ? "opacity-50 animate-pulse" : ""}`}
           />
           <div className={`flex justify-end mt-1 text-[10px] ${isOverChar ? "text-destructive font-medium" : "text-muted-foreground"}`}>
             {totalChars.toLocaleString()} / {limits.chars.toLocaleString()} chars
@@ -195,6 +199,7 @@ export function ContentSidebar({
               <span className={`ml-1 ${isOverHashtag ? "text-destructive" : ""}`}>
                 ({hashtags.length}/{limits.hashtags})
               </span>
+              {generating && <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-accent border-t-transparent animate-spin ml-0.5" />}
             </label>
             {hashtags.length > 0 && (
               <button
@@ -208,7 +213,7 @@ export function ContentSidebar({
           </div>
 
           {hashtags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-2">
+            <div className={`flex flex-wrap gap-1 mb-2 transition-opacity ${generating ? "opacity-50 animate-pulse pointer-events-none" : ""}`}>
               {hashtags.map((tag) => (
                 <span
                   key={tag}
@@ -233,7 +238,7 @@ export function ContentSidebar({
               onChange={(e) => setHashtagInput(e.target.value)}
               onKeyDown={handleHashtagKeyDown}
               placeholder={t("hashtagPlaceholder")}
-              disabled={hashtags.length >= limits.hashtags}
+              disabled={hashtags.length >= limits.hashtags || generating}
               className="flex-1 h-8 rounded-lg border border-border bg-muted px-3 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
             />
             <button

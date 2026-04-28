@@ -18,6 +18,8 @@ interface CarouselPreviewProps {
   logoConfig?: LogoConfig;
   colorSubstitution?: ColorSubstitution;
   fontSubstitution?: FontSubstitution;
+  customBackground?: string;
+  accentOverride?: string;
 }
 
 export function CarouselPreview({
@@ -31,6 +33,8 @@ export function CarouselPreview({
   logoConfig,
   colorSubstitution,
   fontSubstitution,
+  customBackground,
+  accentOverride,
 }: CarouselPreviewProps) {
   const slide = slides[activeIndex];
   const prevIndexRef = useRef(activeIndex);
@@ -102,6 +106,8 @@ export function CarouselPreview({
             logoConfig={logoConfig}
             colorSubstitution={colorSubstitution}
             fontSubstitution={fontSubstitution}
+            customBackground={customBackground}
+            accentOverride={accentOverride}
           />
         </div>
 

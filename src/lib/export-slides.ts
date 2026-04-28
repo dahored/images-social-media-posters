@@ -82,7 +82,9 @@ export async function exportSlide(
   aspectRatio: AspectRatio,
   logoConfig?: LogoConfig,
   colorSubstitution?: ColorSubstitution,
-  fontSubstitution?: FontSubstitution
+  fontSubstitution?: FontSubstitution,
+  customBackground?: string,
+  accentOverride?: string
 ): Promise<Buffer> {
   const { width, height } = DIMENSIONS[aspectRatio];
 
@@ -99,10 +101,16 @@ export async function exportSlide(
     ? { ...logoConfig, path: await inlineImagePath(logoConfig.path) }
     : logoConfig;
 
-  // Build self-contained HTML (substitutions already applied — don't re-apply)
+  // Build self-contained HTML (substitutions already applied — don't re-apply).
+  // Pass fontRoles so wrapSlideHtml injects .slide-title / .slide-body CSS for class-based targeting.
   const fullHtml = wrapSlideHtml(inlinedHtml, aspectRatio, {
     inlineFontCss: inlinedFontCss,
     logoConfig: inlinedLogoConfig,
+    customBackground: customBackground ?? slide.styleOverride?.customBackground,
+    fontRoles: fontSubstitution
+      ? { heading: fontSubstitution.heading?.to, body: fontSubstitution.body?.to }
+      : undefined,
+    accentOverride,
   });
 
   const br = await getBrowser();
@@ -147,6 +155,9 @@ export async function exportSlide(
 export type SlideExportOverrides = {
   colorSubstitution?: ColorSubstitution;
   fontSubstitution?: FontSubstitution;
+  customBackground?: string;
+  logoConfig?: LogoConfig;
+  accentOverride?: string;
 };
 
 /**
@@ -170,7 +181,7 @@ export async function exportAllSlides(
       batch.map(async (slide, batchIdx) => {
         const idx = i + batchIdx;
         const overrides = getSlideOverrides?.(slide);
-        const buffer = await exportSlide(slide, aspectRatio, logoConfig, overrides?.colorSubstitution, overrides?.fontSubstitution);
+        const buffer = await exportSlide(slide, aspectRatio, overrides?.logoConfig ?? logoConfig, overrides?.colorSubstitution, overrides?.fontSubstitution, overrides?.customBackground, overrides?.accentOverride);
         onProgress?.(idx + 1, slides.length);
         return { name: `slide-${idx + 1}.png`, buffer };
       })

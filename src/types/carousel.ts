@@ -49,9 +49,14 @@ export interface Slide {
   order: number;
   notes: string;
   styleOverride?: {
+    theme?: "dark" | "light";
     colors?: SlideColorSet;
     colorsLight?: SlideColorSet;
     fonts?: { heading?: string; body?: string };
+    logoPath?: string;
+    logoPosition?: LogoPosition;
+    logoHeight?: number;
+    customBackground?: string;
   };
 }
 

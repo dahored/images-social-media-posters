@@ -114,10 +114,31 @@ export function extractFontFamilies(html: string): string[] {
 }
 
 /**
- * Wraps slide body HTML into a full HTML document at the correct dimensions.
- * This is THE shared rendering contract between preview (iframe) and export (Puppeteer).
- * Logo is injected here at system level so the AI never has to manage its position.
+ * Detects the first hex color (#rrggbb) from the root element's background property.
+ * Scans the first div's inline style — returns null for class-based or gradient-only slides.
  */
+export function detectSlideRootBackground(html: string): string | null {
+  const divMatch = html.match(/<div[^>]*style="([^"]*)"/i);
+  if (!divMatch) return null;
+  const bgMatch = divMatch[1].match(/background(?:-color)?\s*:[^;]*?(#[0-9a-fA-F]{6})/i);
+  return bgMatch ? bgMatch[1].toLowerCase() : null;
+}
+
+const MIN_FONT_BY_RATIO: Record<string, number> = {
+  "1:1": 20,
+  "4:5": 24,
+  "9:16": 24,
+};
+const DEFAULT_MIN_FONT = 20;
+
+function clampFontSizes(html: string, minSize: number): string {
+  return html.replace(/font-size:\s*(\d+(?:\.\d+)?)px/gi, (match, raw) => {
+    const size = parseFloat(raw);
+    if (size > 0 && size < minSize) return `font-size: ${minSize}px`;
+    return match;
+  });
+}
+
 function applyFontSub(html: string, sub: { from: string; to: string }): string {
   if (!sub.from || !sub.to || sub.from.toLowerCase() === sub.to.toLowerCase()) return html;
   const escaped = sub.from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -142,7 +163,17 @@ export function preprocessSlideHtml(
 export function wrapSlideHtml(
   slideHtml: string,
   aspectRatio: AspectRatio,
-  options?: { inlineFontCss?: string; logoConfig?: LogoConfig; colorSubstitution?: ColorSubstitution; fontSubstitution?: FontSubstitution }
+  options?: {
+    inlineFontCss?: string;
+    logoConfig?: LogoConfig;
+    colorSubstitution?: ColorSubstitution;
+    fontSubstitution?: FontSubstitution;
+    /** Effective heading/body font names for CSS class injection only — no string replacement. Use when preprocessSlideHtml already applied string subs. */
+    fontRoles?: { heading?: string; body?: string };
+    customBackground?: string;
+    /** Override accent color for elements with class="slide-accent" */
+    accentOverride?: string;
+  }
 ): string {
   const { width, height } = DIMENSIONS[aspectRatio];
 
@@ -151,20 +182,44 @@ export function wrapSlideHtml(
   if (options?.colorSubstitution) {
     processedHtml = applyColorSubstitution(processedHtml, options.colorSubstitution);
   }
-  if (options?.fontSubstitution?.heading) {
-    processedHtml = applyFontSub(processedHtml, options.fontSubstitution.heading);
-  }
-  if (options?.fontSubstitution?.body) {
-    processedHtml = applyFontSub(processedHtml, options.fontSubstitution.body);
-  }
+
+  if (options?.fontSubstitution?.heading) processedHtml = applyFontSub(processedHtml, options.fontSubstitution.heading);
+  if (options?.fontSubstitution?.body) processedHtml = applyFontSub(processedHtml, options.fontSubstitution.body);
+
+  const minFont = MIN_FONT_BY_RATIO[aspectRatio] ?? DEFAULT_MIN_FONT;
+  processedHtml = clampFontSizes(processedHtml, minFont);
 
   const fontFamilies = extractFontFamilies(processedHtml);
+
+  // CSS injection for slide-title/slide-body classes — precise per-role targeting with !important.
+  // This takes priority over string-replaced inline styles when both heading and body share the same source font.
+  const headingTarget = options?.fontSubstitution?.heading?.to ?? options?.fontRoles?.heading;
+  const bodyTarget    = options?.fontSubstitution?.body?.to    ?? options?.fontRoles?.body;
+  const accentCss = options?.accentOverride
+    ? `.slide-accent { color: ${options.accentOverride} !important; }`
+    : "";
+
+  const fontRoleCss = [
+    headingTarget ? `.slide-title { font-family: '${headingTarget}', sans-serif !important; }` : "",
+    bodyTarget    ? `.slide-body  { font-family: '${bodyTarget}', sans-serif !important; }` : "",
+    accentCss,
+  ].filter(Boolean).join("\n    ");
+
+  // Always include override target fonts in Google Fonts, even if string replacement didn't find them in the HTML.
+  // This ensures the font loads when CSS class injection applies it.
+  const allFontFamilies = [...fontFamilies];
+  if (headingTarget && !fontFamilies.some((f) => f.toLowerCase() === headingTarget.toLowerCase())) {
+    allFontFamilies.push(headingTarget);
+  }
+  if (bodyTarget && !fontFamilies.some((f) => f.toLowerCase() === bodyTarget.toLowerCase())) {
+    allFontFamilies.push(bodyTarget);
+  }
 
   let fontBlock = "";
   if (options?.inlineFontCss) {
     fontBlock = `<style>${options.inlineFontCss}</style>`;
-  } else if (fontFamilies.length > 0) {
-    const params = fontFamilies
+  } else if (allFontFamilies.length > 0) {
+    const params = allFontFamilies
       .map(
         (f) =>
           `family=${encodeURIComponent(f)}:wght@300;400;500;600;700;800`
@@ -184,6 +239,15 @@ export function wrapSlideHtml(
     );
   }
 
+  // Strip AI-generated full-width separator divs/hrs placed above the logo zone.
+  // Pattern: <div style="...left:0;right:0;height:[1-3]px..."> or <hr ...>
+  // These appear as a horizontal line just above the logo overlay.
+  cleanSlideHtml = cleanSlideHtml.replace(/<hr\b[^>]*>/gi, "");
+  cleanSlideHtml = cleanSlideHtml.replace(
+    /<div\s+style="[^"]*(?:left\s*:\s*0[^"]*right\s*:\s*0|right\s*:\s*0[^"]*left\s*:\s*0)[^"]*height\s*:\s*[1-4]px[^"]*"[^>]*>\s*<\/div>/gi,
+    ""
+  );
+
   let logoOverlay = "";
   if (options?.logoConfig && options.logoConfig.path !== "none") {
     const { path, position, height: logoH } = options.logoConfig;
@@ -200,6 +264,39 @@ export function wrapSlideHtml(
     logoOverlay = `<img src="${path}" alt="logo" style="position:absolute;bottom:${bottomPx}px;${posStyle};height:${logoH}px;width:auto;object-fit:contain;pointer-events:none;z-index:10;">`;
   }
 
+  // Directly patch backgrounds so a custom color fully overrides whatever the AI generated.
+  // CSS !important alone doesn't beat inline shorthand backgrounds in sandboxed iframes.
+  if (options?.customBackground) {
+    const bg = options.customBackground;
+    const clearBg = (style: string) =>
+      style.split(";").map((s: string) => s.trim()).filter((s: string) => s && !/^background/i.test(s)).join(";");
+
+    // Pass 1: root div — set custom background
+    const patched = cleanSlideHtml.replace(
+      /(<div\b[^>]*\bstyle=")([^"]*)(")/,
+      (_, pre, style, close) => {
+        const stripped = clearBg(style);
+        return `${pre}background:${bg};background-color:${bg}${stripped ? ";" + stripped : ""}${close}`;
+      }
+    );
+    if (patched !== cleanSlideHtml) cleanSlideHtml = patched;
+
+    // Pass 2: full-screen overlay divs (position:absolute + top:0 + left:0 + right:0 pattern).
+    // AI slides commonly use these for gradient backgrounds layered on top of the root div.
+    cleanSlideHtml = cleanSlideHtml.replace(
+      /<div[^>]*\bstyle="([^"]*)"[^>]*>/gi,
+      (match, style) => {
+        if (!/background/i.test(style)) return match;
+        const hasTop0  = /\btop\s*:\s*0/.test(style)   || /\binset\s*:\s*0/.test(style);
+        const hasLeft0 = /\bleft\s*:\s*0/.test(style)  || /\binset\s*:\s*0/.test(style);
+        const hasRight0 = /\bright\s*:\s*0/.test(style) || /\binset\s*:\s*0/.test(style);
+        if (!hasTop0 || !hasLeft0 || !hasRight0) return match;
+        const cleared = clearBg(style);
+        return match.replace(/\bstyle="[^"]*"/, `style="${cleared}"`);
+      }
+    );
+  }
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -209,6 +306,7 @@ export function wrapSlideHtml(
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: ${width}px; height: ${height}px; overflow: hidden; position: relative; }
+    ${fontRoleCss}
   </style>
 </head>
 <body>

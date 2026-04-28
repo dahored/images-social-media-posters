@@ -61,32 +61,30 @@ export async function POST(
       // Compute logo config
       const branding = accountId ? await getEffectiveBranding(accountId) : null;
       const activeTheme = carousel.brandingOverride?.theme ?? "dark";
-      const logoPath = branding
+      const logoPosition = carousel.brandingOverride?.logoPosition ?? branding?.logoPosition ?? "bottom-center";
+      const logoHeight = carousel.brandingOverride?.logoHeight ?? branding?.logoHeight ?? 72;
+      const carouselLogoPath = branding
         ? (activeTheme === "dark"
             ? (branding.logoPathLight ?? branding.logoPath ?? null)
             : (branding.logoPathDark ?? branding.logoPath ?? null))
         : null;
-      const logoConfig: LogoConfig | undefined = logoPath
-        ? {
-            path: logoPath,
-            position: carousel.brandingOverride?.logoPosition ?? branding?.logoPosition ?? "bottom-center",
-            height: carousel.brandingOverride?.logoHeight ?? branding?.logoHeight ?? 72,
-          }
+      const logoConfig: LogoConfig | undefined = carouselLogoPath
+        ? { path: carouselLogoPath, position: logoPosition, height: logoHeight }
         : undefined;
 
       const brandDark = branding?.colors;
       const brandLight = branding?.colorsLight;
       const activeThemePub = carousel.brandingOverride?.theme ?? "dark";
       const brandBaseForTheme = activeThemePub === "dark" ? brandDark : (brandLight ?? brandDark);
-      const carouselColorOverride = activeThemePub === "dark"
-        ? carousel.brandingOverride?.colors
-        : carousel.brandingOverride?.colorsLight;
+      const carouselColorsDark  = carousel.brandingOverride?.colors;
+      const carouselColorsLight = carousel.brandingOverride?.colorsLight;
+      const carouselColorOverride = activeThemePub === "dark" ? carouselColorsDark : carouselColorsLight;
       const overrideFonts = carousel.brandingOverride?.fonts;
       const brandFonts = branding?.fonts;
       const fontSubstitutionPub: FontSubstitution | undefined = brandFonts
         ? {
-            heading: overrideFonts?.heading ? { from: brandFonts.heading, to: overrideFonts.heading } : undefined,
-            body: overrideFonts?.body ? { from: brandFonts.body, to: overrideFonts.body } : undefined,
+            heading: { from: brandFonts.heading, to: overrideFonts?.heading ?? brandFonts.heading },
+            body:    { from: brandFonts.body,    to: overrideFonts?.body    ?? brandFonts.body    },
           }
         : undefined;
 
@@ -105,22 +103,49 @@ export async function POST(
       }
 
       function getSlideOverridesPub(slide: Slide) {
-        if (!brandDark || !brandBaseForTheme) return undefined;
-        const slideColorOv = activeThemePub === "dark"
+        const slideTheme: "dark" | "light" = slide.styleOverride?.theme ?? activeThemePub;
+
+        // Per-slide logo: explicit path > theme-based variant; per-slide position/height override
+        const slideLogoPath = slide.styleOverride?.logoPath
+          ?? (branding
+            ? (slideTheme === "dark"
+              ? (branding.logoPathLight ?? branding.logoPath ?? null)
+              : (branding.logoPathDark  ?? branding.logoPath ?? null))
+            : null);
+        const slideLogoPosition = slide.styleOverride?.logoPosition ?? logoPosition;
+        const slideLogoHeight   = slide.styleOverride?.logoHeight   ?? logoHeight;
+        const slideLogoConfig: LogoConfig | undefined = slideLogoPath
+          ? { path: slideLogoPath, position: slideLogoPosition, height: slideLogoHeight }
+          : logoConfig;
+
+        // Per-slide font substitution: slide override > carousel override > brand
+        const sFontsPub = slide.styleOverride?.fonts;
+        const slideFontSubPub: FontSubstitution | undefined = brandFonts
+          ? {
+              heading: { from: brandFonts.heading, to: sFontsPub?.heading ?? overrideFonts?.heading ?? brandFonts.heading },
+              body:    { from: brandFonts.body,    to: sFontsPub?.body    ?? overrideFonts?.body    ?? brandFonts.body    },
+            }
+          : fontSubstitutionPub;
+
+        if (!brandDark || !brandBaseForTheme) return { logoConfig: slideLogoConfig, customBackground: slide.styleOverride?.customBackground, fontSubstitution: slideFontSubPub };
+
+        const slideBase = slideTheme === "dark" ? brandDark : (brandLight ?? brandDark);
+        const slideCarouselOv = slideTheme === "dark" ? carouselColorsDark : carouselColorsLight;
+        const slideColorOv = slideTheme === "dark"
           ? slide.styleOverride?.colors
           : slide.styleOverride?.colorsLight;
         const colorSubstitution: ColorSubstitution = {
           from: { ...brandDark },
-          to: mergeColorsPub(brandBaseForTheme, carouselColorOverride, slideColorOv),
+          to: mergeColorsPub(slideBase, slideCarouselOv, slideColorOv),
         };
-        return { colorSubstitution, fontSubstitution: fontSubstitutionPub };
+        return { colorSubstitution, fontSubstitution: slideFontSubPub, customBackground: slide.styleOverride?.customBackground, logoConfig: slideLogoConfig };
       }
 
       const pngBuffers = await exportAllSlides(
         carousel.slides,
         carousel.aspectRatio,
         logoConfig,
-        branding ? getSlideOverridesPub : undefined
+        getSlideOverridesPub
       );
       const buffers = pngBuffers.map((p) => p.buffer);
       const caption = buildCaption(carousel.caption, carousel.hashtags);

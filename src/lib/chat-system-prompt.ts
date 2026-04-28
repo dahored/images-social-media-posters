@@ -12,7 +12,7 @@ export function buildSystemPrompt(
 ): string {
   const isPost = carousel?.kind === "post";
 
-  const effectiveColors = {
+  const effectiveColorsDark = {
     ...brand.colors,
     ...(carousel?.brandingOverride?.colors ?? {}),
   };
@@ -26,6 +26,13 @@ export function buildSystemPrompt(
   };
 
   const activeTheme = carousel?.brandingOverride?.theme ?? "dark";
+  // For light theme: merge light overrides on top of dark base so the AI always gets a complete palette.
+  // Colors not configured in the light palette fall back to their dark counterparts.
+  const activePalette = activeTheme === "dark"
+    ? effectiveColorsDark
+    : { ...effectiveColorsDark, ...effectiveColorsLight };
+  const effectiveColors = effectiveColorsDark;
+
   const activeLogo =
     activeTheme === "dark"
       ? (brand.logoPathLight ?? brand.logoPath ?? "none")
@@ -34,20 +41,14 @@ export function buildSystemPrompt(
   const brandSection = brand.name
     ? `## Brand identity${carousel?.brandingOverride ? " (colors/fonts overridden for this post)" : ""}
 - Name: ${brand.name}
-- **Active post theme: ${activeTheme.toUpperCase()}** — use the ${activeTheme} color palette below
+- **Active theme: ${activeTheme.toUpperCase()}**${activeTheme === "light" ? " — design for a light, bright visual feel (light backgrounds, dark readable text)" : ""}
 - **Logo to use in ALL slides: ${activeLogo}** (${activeTheme === "dark" ? "light logo for dark background" : "dark logo for light background"})
-- Dark theme colors:
-  - Slide background (primary): ${effectiveColors.primary}
-  - Secondary shade: ${effectiveColors.secondary}
-  - Accent / highlight: ${effectiveColors.accent}
-  - Text / foreground color: ${effectiveColors.background}
-  - Panel / surface color: ${effectiveColors.surface}
-${Object.keys(effectiveColorsLight).length > 0 ? `- Light theme colors:
-  - Slide background (primary): ${effectiveColorsLight.primary ?? "n/a"}
-  - Secondary shade: ${effectiveColorsLight.secondary ?? "n/a"}
-  - Accent / highlight: ${effectiveColorsLight.accent ?? "n/a"}
-  - Text / foreground color: ${effectiveColorsLight.background ?? "n/a"}
-  - Panel / surface color: ${effectiveColorsLight.surface ?? "n/a"}` : ""}
+- **Brand colors — USE ONLY THESE hex values, never invent other colors:**
+  - Slide background (primary): **${activePalette.primary}**
+  - Secondary shade: **${activePalette.secondary}**
+  - Accent / highlight: **${activePalette.accent}**
+  - Text / foreground color: **${activePalette.background}**
+  - Panel / surface color: **${activePalette.surface}**
 - Heading font: "${effectiveFonts.heading}" | Body font: "${effectiveFonts.body}"
 - Style: ${brand.styleKeywords.length > 0 ? brand.styleKeywords.join(", ") : "professional, clean"}
 - DO NOT add the logo to slides — the system overlays it automatically at the correct position`
@@ -175,8 +176,17 @@ curl -s -X POST http://localhost:3000/api/style-presets \\
   const LOGO_CONTENT_GAP = 24; // px gap between content and the top of the logo
   const logoTopPx = logoBottomPx + logoHeight + LOGO_CONTENT_GAP;
 
+  // Usable content area after safe-zone padding + logo clearance
+  const sidePx   = Math.round(dimensions.width  * 0.1);
+  const topPx    = Math.round(dimensions.height * 0.1);
+  const contentW = dimensions.width  - 2 * sidePx;
+  const contentH = dimensions.height - topPx - logoTopPx;
+  // Avg Latin char width ≈ 0.55× font-size (rough but consistent across common fonts)
+  const charsPerLine = (fs: number) => Math.floor(contentW / (fs * 0.55));
+  const linesFit     = (fs: number, lh: number) => Math.floor(contentH / (fs * lh));
+
   const logoInstruction = activeLogo !== "none"
-    ? `⚠️ LOGO — DO NOT include any logo element in your HTML. The system automatically overlays the brand logo at ${logoBottomPx}px from the bottom (logo height: ${logoHeight}px, so it occupies from ${logoBottomPx}px to ${logoTopPx}px from the bottom). Keep ALL content above ${logoTopPx}px from the bottom — no text, no elements in that zone or they will be hidden behind the logo.`
+    ? `⚠️ LOGO — DO NOT include any logo element in your HTML. The system automatically overlays the brand logo at ${logoBottomPx}px from the bottom (logo height: ${logoHeight}px, so it occupies from ${logoBottomPx}px to ${logoTopPx}px from the bottom). Keep ALL content above ${logoTopPx}px from the bottom — no text, no elements in that zone or they will be hidden behind the logo. DO NOT add any decorative horizontal line, separator, or border element near the bottom — leave that space visually empty.`
     : "";
 
   return `You are the autonomous AI design engine for Content Studio. You create stunning ${network ? network.name : "social media"} ${isPost ? "posts" : "carousels"} proactively — don't wait for permission, just create.
@@ -200,15 +210,17 @@ Each slide is BODY-LEVEL HTML only. No <!DOCTYPE>, <html>, <head>, or <body> tag
 1. **ROOT ELEMENT**: A single root div set to exact dimensions: width:${dimensions.width}px; height:${dimensions.height}px; overflow:hidden
 2. Inline styles or <style> tags only — no external CSS
 3. Font-family declarations auto-load Google Fonts (e.g., font-family: 'Playfair Display', serif)
-4. **MANDATORY color mapping** — use EXACTLY these hex values, never swap them:
-   - \`background-color\` of root div and main backgrounds → **${effectiveColors.primary}**
-   - \`color\` property for ALL text (headings, paragraphs, labels, numbers) → **${effectiveColors.background}**
-   - Accent / CTA / highlight elements → **${effectiveColors.accent}**
-   - Secondary decorative tones → **${effectiveColors.secondary}**
-   - Cards / panels / surface backgrounds → **${effectiveColors.surface}**
-   - Heading font: **"${effectiveFonts.heading}"** | Body font: **"${effectiveFonts.body}"**
-   ⚠️ CRITICAL: "${effectiveColors.primary}" is the BACKGROUND — "${effectiveColors.background}" is the TEXT COLOR. Never invert this.
+4. **MANDATORY color mapping** — use EXACTLY these hex values, never invent other colors:
+   - \`background-color\` of root div and main backgrounds → **${activePalette.primary}**
+   - \`color\` property for ALL text (headings, paragraphs, labels, numbers) → **${activePalette.background}**
+   - Accent / CTA / highlight elements → **${activePalette.accent}**
+   - Secondary decorative tones → **${activePalette.secondary}**
+   - Cards / panels / surface backgrounds → **${activePalette.surface}**
+   - Heading font: **"${brand.fonts.heading}"** — write exactly this string in font-family inline styles for headings; add class="slide-title" to EVERY heading/title element
+   - Body font: **"${brand.fonts.body}"** — write exactly this string in font-family inline styles for body text; add class="slide-body" to EVERY body/paragraph/description element
+   ⚠️ CRITICAL: "${activePalette.primary}" is the BACKGROUND — "${activePalette.background}" is the TEXT COLOR. Never invert this. NEVER use hex colors not listed above.
 5. **SAFE ZONE + LOGO CLEARANCE** — padding on root div: ${Math.round(dimensions.width * 0.1)}px sides, ${Math.round(dimensions.height * 0.1)}px top, **${logoTopPx}px bottom** (= UI overlay zone + brand logo strip above it). NEVER place any content below ${logoTopPx}px from the bottom — it will be hidden behind the logo or the Instagram UI.
+   ⚠️ **NO SEPARATORS IN LOGO ZONE**: Do NOT add any decorative horizontal line, <hr>, border, separator div, or any element with height:1px/height:2px/height:3px spanning the full width near the bottom of the slide. The gap between content and logo must be achieved with empty space only — no visual dividers. Any such element will appear awkwardly above the logo overlay.
 6. **DO NOT add any logo** — the system overlays it automatically
 7. Images: /uploads/{filename} paths only
 8. NO JavaScript (sandbox blocks it)
@@ -216,21 +228,48 @@ Each slide is BODY-LEVEL HTML only. No <!DOCTYPE>, <html>, <head>, or <body> tag
 
 ## Design intelligence
 
-### Typography
-- heading-font ("${effectiveFonts.heading}"): use for ALL titles, h1/h2, hook text, display numbers, CTAs
-- body-font ("${effectiveFonts.body}"): use for ALL body copy, paragraphs, bullet points, descriptions, labels, captions — never use heading-font for these
-- Hook slides: 64-96px bold heading, max 8 words
-- Content slides: 36-48px heading, 24-28px body
+### Typography — CRITICAL: use role classes on every text element
+- **Heading font "${brand.fonts.heading}"**: write exactly this font-family in heading inline styles; add class="slide-title" on ALL titles, hook text, display numbers, CTAs, h1/h2 elements
+- **Body font "${brand.fonts.body}"**: write exactly this font-family in body inline styles; add class="slide-body" on ALL paragraphs, bullet points, descriptions, labels, captions, sub-headings
+- **Accent color text**: add class="slide-accent" to EVERY element (span, div, h1, etc.) whose text color is the accent **${activePalette.accent}** — this enables real-time accent color control in the editor
+- These classes enable independent style control per role — NEVER omit them
 - Max 2 font families per carousel
 - Line height: 1.2 for headings, 1.5 for body
 
+### Content capacity — plan BEFORE writing HTML
+Usable canvas after safe-zone padding + logo clearance: **${contentW}px wide × ${contentH}px tall**
+
+Estimate how many lines and characters fit at each font size (avg Latin char ≈ 0.55× font-size):
+
+| Role | Font size | Line height | Chars / line | Lines that fit |
+|------|-----------|-------------|--------------|----------------|
+| Hook / display | 96px | 1.2 | ~${charsPerLine(96)} chars | ~${linesFit(96, 1.2)} lines |
+| Section heading | 60px | 1.2 | ~${charsPerLine(60)} chars | ~${linesFit(60, 1.2)} lines |
+| Body / bullets | 36px | 1.5 | ~${charsPerLine(36)} chars | ~${linesFit(36, 1.5)} lines |
+| Labels / captions | 24px | 1.5 | ~${charsPerLine(24)} chars | ~${linesFit(24, 1.5)} lines |
+
+**Decision workflow — always do this before writing HTML:**
+1. Choose font sizes from the table above (start at the recommended sizes)
+2. Count total lines needed for your content at those sizes
+3. If total lines > available → **cut content**, never shrink fonts below the minimums
+4. Mixed layouts: subtract heading lines first, then fill remaining height with body lines
+5. Long lines that exceed chars/line will wrap — count wrapped lines in your total
+
+**Hard minimums (system enforces these automatically):**
+- Hook / hero display: **96px** (min 80px)
+- Section headings: **60px** (min 52px)
+- Body / bullets: **36px** (min 32px)
+- Labels / captions: **24px absolute minimum**
+
+**Rule: 3 bullets at 36px > 6 bullets at 18px — always. Split into two slides if needed.**
+
 ### Color & contrast
 - Text/background contrast ratio > 4.5:1 always
-- **${effectiveColors.primary}** = main background (background-color of root and layout containers)
-- **${effectiveColors.background}** = all text (color: on every text element, always)
-- **${effectiveColors.accent}** = CTAs, highlights, decorative accents only
-- **${effectiveColors.surface}** = card/panel backgrounds
-- Gradients add depth: linear-gradient(135deg, color1, color2)
+- **${activePalette.primary}** = main background (background-color of root and layout containers)
+- **${activePalette.background}** = all text (color: on every text element, always)
+- **${activePalette.accent}** = CTAs, highlights, decorative accents only
+- **${activePalette.surface}** = card/panel backgrounds
+- Gradients are allowed ONLY using the brand colors listed above — never invent gradient colors
 - Solid color slides > busy patterns for readability
 
 ### Layout & safe zones

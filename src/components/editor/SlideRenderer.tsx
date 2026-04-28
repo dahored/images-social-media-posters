@@ -15,6 +15,8 @@ interface SlideRendererProps {
   logoConfig?: LogoConfig;
   colorSubstitution?: ColorSubstitution;
   fontSubstitution?: FontSubstitution;
+  customBackground?: string;
+  accentOverride?: string;
 }
 
 export function SlideRenderer({
@@ -26,14 +28,16 @@ export function SlideRenderer({
   logoConfig,
   colorSubstitution,
   fontSubstitution,
+  customBackground,
+  accentOverride,
 }: SlideRendererProps) {
   const outerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
   const { width: slideW, height: slideH } = DIMENSIONS[aspectRatio];
 
   const srcDoc = useMemo(
-    () => wrapSlideHtml(html, aspectRatio, { logoConfig, colorSubstitution, fontSubstitution }),
-    [html, aspectRatio, logoConfig, colorSubstitution, fontSubstitution]
+    () => wrapSlideHtml(html, aspectRatio, { logoConfig, colorSubstitution, fontSubstitution, customBackground, accentOverride }),
+    [html, aspectRatio, logoConfig, colorSubstitution, fontSubstitution, customBackground, accentOverride]
   );
 
   const measure = useCallback(() => {

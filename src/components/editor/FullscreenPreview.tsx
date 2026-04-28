@@ -18,6 +18,8 @@ interface FullscreenPreviewProps {
   logoConfig?: LogoConfig;
   colorSubstitution?: ColorSubstitution;
   fontSubstitution?: FontSubstitution;
+  customBackground?: string;
+  accentOverride?: string;
 }
 
 export function FullscreenPreview({
@@ -30,6 +32,8 @@ export function FullscreenPreview({
   logoConfig,
   colorSubstitution,
   fontSubstitution,
+  customBackground,
+  accentOverride,
 }: FullscreenPreviewProps) {
   const slide = slides[activeIndex];
 
@@ -85,6 +89,8 @@ export function FullscreenPreview({
               logoConfig={logoConfig}
               colorSubstitution={colorSubstitution}
               fontSubstitution={fontSubstitution}
+              customBackground={customBackground}
+              accentOverride={accentOverride}
             />
           )}
 

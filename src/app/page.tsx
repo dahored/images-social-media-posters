@@ -12,12 +12,24 @@ import { SlideRenderer } from "@/components/editor/SlideRenderer";
 import { TemplateGallery } from "@/components/templates/TemplateGallery";
 import { useI18n } from "@/lib/i18n/context";
 import type { Carousel, AspectRatio } from "@/types/carousel";
+import type { EffectiveBranding } from "@/types/account";
+import type { ColorSubstitution } from "@/lib/slide-html";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { t } = useI18n();
   const [carousels, setCarousels] = useState<Carousel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeBranding, setActiveBranding] = useState<EffectiveBranding | null>(null);
+
+  const fetchBranding = useCallback(() => {
+    const id = localStorage.getItem("activeAccountId");
+    if (!id) { setActiveBranding(null); return; }
+    fetch(`/api/accounts/${id}`)
+      .then((r) => r.json())
+      .then((d) => setActiveBranding(d.effectiveBranding ?? null))
+      .catch(() => setActiveBranding(null));
+  }, []);
 
   const fetchCarousels = useCallback(() => {
     const id = localStorage.getItem("activeAccountId");
@@ -34,9 +46,30 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchCarousels();
-    window.addEventListener("account-changed", fetchCarousels);
-    return () => window.removeEventListener("account-changed", fetchCarousels);
-  }, [fetchCarousels]);
+    fetchBranding();
+    const handleAccountChange = () => { fetchCarousels(); fetchBranding(); };
+    window.addEventListener("account-changed", handleAccountChange);
+    return () => window.removeEventListener("account-changed", handleAccountChange);
+  }, [fetchCarousels, fetchBranding]);
+
+  function getCarouselColorSub(carousel: Carousel): ColorSubstitution | undefined {
+    if (!activeBranding) return undefined;
+    const brandDark = activeBranding.colors;
+    const brandLight = activeBranding.colorsLight;
+    const theme = carousel.brandingOverride?.theme ?? "dark";
+    const base = theme === "dark" ? brandDark : (brandLight ?? brandDark);
+    const carOv = theme === "dark" ? carousel.brandingOverride?.colors : carousel.brandingOverride?.colorsLight;
+    return {
+      from: { ...brandDark },
+      to: {
+        primary:    carOv?.primary    ?? base.primary,
+        secondary:  carOv?.secondary  ?? base.secondary,
+        accent:     carOv?.accent     ?? base.accent,
+        background: carOv?.background ?? base.background,
+        surface:    carOv?.surface    ?? base.surface,
+      },
+    };
+  }
 
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
@@ -221,6 +254,7 @@ export default function DashboardPage() {
                         html={carousel.slides[0].html}
                         aspectRatio={carousel.aspectRatio}
                         className="w-full h-full"
+                        colorSubstitution={getCarouselColorSub(carousel)}
                       />
                     ) : (
                       <Layers className="h-8 w-8 text-muted-foreground/30" />

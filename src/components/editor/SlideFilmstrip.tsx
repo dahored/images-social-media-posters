@@ -26,6 +26,8 @@ import { cn } from "@/lib/utils";
 interface SlideSubstitution {
   colorSubstitution?: ColorSubstitution;
   fontSubstitution?: FontSubstitution;
+  customBackground?: string;
+  accentOverride?: string;
 }
 
 interface SlideFilmstripProps {
@@ -39,6 +41,8 @@ interface SlideFilmstripProps {
   onReorderSlides?: (slideIds: string[]) => void;
   isGenerating?: boolean;
   logoConfig?: LogoConfig;
+  /** Per-slide logo overrides (keyed by slide.id). Falls back to logoConfig if not present. */
+  slideLogoConfigs?: Record<string, LogoConfig>;
   /** Per-slide color+font substitutions. If provided, replaces the old shared props. */
   slideSubstitutions?: Record<string, SlideSubstitution>;
   colorSubstitution?: ColorSubstitution;
@@ -58,6 +62,8 @@ function SortableSlideThumb({
   logoConfig,
   colorSubstitution,
   fontSubstitution,
+  customBackground,
+  accentOverride,
 }: {
   slide: Slide;
   index: number;
@@ -71,6 +77,8 @@ function SortableSlideThumb({
   logoConfig?: LogoConfig;
   colorSubstitution?: ColorSubstitution;
   fontSubstitution?: FontSubstitution;
+  customBackground?: string;
+  accentOverride?: string;
 }) {
   const { t } = useI18n();
   const {
@@ -118,6 +126,8 @@ function SortableSlideThumb({
           logoConfig={logoConfig}
           colorSubstitution={colorSubstitution}
           fontSubstitution={fontSubstitution}
+          customBackground={customBackground}
+          accentOverride={accentOverride}
         />
         {/* Per-slide override indicator dot */}
         {slide.styleOverride && (
@@ -126,6 +136,7 @@ function SortableSlideThumb({
         ) && (
           <div className="absolute top-1 left-1 h-1.5 w-1.5 rounded-full bg-accent pointer-events-none" />
         )}
+
       </button>
 
       {/* Hover actions */}
@@ -179,6 +190,7 @@ export function SlideFilmstrip({
   onReorderSlides,
   isGenerating,
   logoConfig,
+  slideLogoConfigs,
   slideSubstitutions,
   colorSubstitution,
   fontSubstitution,
@@ -241,9 +253,11 @@ export function SlideFilmstrip({
                 onSelect={() => onActiveChange(index)}
                 onDelete={onDeleteSlide ? () => onDeleteSlide(slide.id) : undefined}
                 onUndo={onUndoSlide ? () => onUndoSlide(slide.id) : undefined}
-                logoConfig={logoConfig}
+                logoConfig={slideLogoConfigs?.[slide.id] ?? logoConfig}
                 colorSubstitution={slideSubstitutions?.[slide.id]?.colorSubstitution ?? colorSubstitution}
                 fontSubstitution={slideSubstitutions?.[slide.id]?.fontSubstitution ?? fontSubstitution}
+                customBackground={slideSubstitutions?.[slide.id]?.customBackground}
+                accentOverride={slideSubstitutions?.[slide.id]?.accentOverride}
               />
             ))}
           </SortableContext>
