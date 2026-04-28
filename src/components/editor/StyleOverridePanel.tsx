@@ -91,7 +91,11 @@ export function StyleOverridePanel({
 
   const handleThemeTabChange = (tab: "dark" | "light") => {
     setThemeTab(tab);
-    onChange({ ...override, theme: tab });
+    // In carousel mode: persist theme to carousel so the preview switches
+    // In slide mode: only switches which color set is being edited (local only)
+    if (panelMode === "carousel") {
+      onChange({ ...override, theme: tab });
+    }
   };
 
   // ── Carousel mode handlers ────────────────────────────────────────────────
