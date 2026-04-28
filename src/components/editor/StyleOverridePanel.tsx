@@ -80,8 +80,14 @@ export function StyleOverridePanel({
   const effectiveHeading = override.fonts?.heading ?? brandFonts.heading;
   const effectiveBody    = override.fonts?.body    ?? brandFonts.body;
 
+  // Slide-level effective fonts (slide override → carousel override → brand)
+  const slideEffectiveHeading = (activeSlide?.styleOverride?.fonts?.heading) ?? effectiveHeading;
+  const slideEffectiveBody    = (activeSlide?.styleOverride?.fonts?.body)    ?? effectiveBody;
+
   useEffect(() => { if (effectiveHeading) loadGoogleFont(effectiveHeading); }, [effectiveHeading]);
   useEffect(() => { if (effectiveBody)    loadGoogleFont(effectiveBody);    }, [effectiveBody]);
+  useEffect(() => { if (slideEffectiveHeading) loadGoogleFont(slideEffectiveHeading); }, [slideEffectiveHeading]);
+  useEffect(() => { if (slideEffectiveBody)    loadGoogleFont(slideEffectiveBody);    }, [slideEffectiveBody]);
 
   const handleThemeTabChange = (tab: "dark" | "light") => {
     setThemeTab(tab);
@@ -105,6 +111,12 @@ export function StyleOverridePanel({
   // ── Slide mode handlers ───────────────────────────────────────────────────
 
   const slideOverride = activeSlide?.styleOverride ?? {};
+
+  const handleSlideFontChange = (key: "heading" | "body", value: string) => {
+    if (!activeSlide || !onSlideOverrideChange) return;
+    const cur = activeSlide.styleOverride ?? {};
+    onSlideOverrideChange(activeSlide.id, { ...cur, fonts: { ...cur.fonts, [key]: value } });
+  };
 
   const handleSlideColorChange = (key: keyof ColorSet, value: string) => {
     if (!activeSlide || !onSlideOverrideChange) return;
@@ -253,16 +265,23 @@ export function StyleOverridePanel({
           </div>
         </section>
 
-        {/* Fonts — only in carousel mode (shared across themes) */}
-        {panelMode === "carousel" && (
-          <section>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Fuentes</h3>
-            <div className="flex flex-col gap-4">
-              <FontSelector label="Título" value={effectiveHeading} onChange={(v) => handleFontChange("heading", v)} />
-              <FontSelector label="Cuerpo" value={effectiveBody}    onChange={(v) => handleFontChange("body",    v)} />
-            </div>
-          </section>
-        )}
+        {/* Fonts — carousel mode: affects all slides; slide mode: only this slide */}
+        <section>
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Fuentes</h3>
+          <div className="flex flex-col gap-4">
+            {panelMode === "carousel" ? (
+              <>
+                <FontSelector label="Título" value={effectiveHeading} onChange={(v) => handleFontChange("heading", v)} />
+                <FontSelector label="Cuerpo" value={effectiveBody}    onChange={(v) => handleFontChange("body",    v)} />
+              </>
+            ) : (
+              <>
+                <FontSelector label="Título" value={slideEffectiveHeading} onChange={(v) => handleSlideFontChange("heading", v)} />
+                <FontSelector label="Cuerpo" value={slideEffectiveBody}    onChange={(v) => handleSlideFontChange("body",    v)} />
+              </>
+            )}
+          </div>
+        </section>
 
         {/* Logo — only in carousel mode */}
         {panelMode === "carousel" && (
@@ -306,7 +325,7 @@ export function StyleOverridePanel({
         {/* Slide mode hint */}
         {panelMode === "slide" && (
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Los colores de este slide se fusionan sobre el override del carousel. Fuentes y logo se controlan a nivel carousel.
+            Los cambios en este modo afectan solo este slide. Logo se controla a nivel carousel.
           </p>
         )}
       </div>

@@ -23,6 +23,11 @@ import type { LogoConfig, ColorSubstitution, FontSubstitution } from "@/lib/slid
 import { DIMENSIONS, MAX_SLIDES } from "@/types/carousel";
 import { cn } from "@/lib/utils";
 
+interface SlideSubstitution {
+  colorSubstitution?: ColorSubstitution;
+  fontSubstitution?: FontSubstitution;
+}
+
 interface SlideFilmstripProps {
   slides: Slide[];
   aspectRatio: AspectRatio;
@@ -34,6 +39,8 @@ interface SlideFilmstripProps {
   onReorderSlides?: (slideIds: string[]) => void;
   isGenerating?: boolean;
   logoConfig?: LogoConfig;
+  /** Per-slide color+font substitutions. If provided, replaces the old shared props. */
+  slideSubstitutions?: Record<string, SlideSubstitution>;
   colorSubstitution?: ColorSubstitution;
   fontSubstitution?: FontSubstitution;
 }
@@ -172,6 +179,7 @@ export function SlideFilmstrip({
   onReorderSlides,
   isGenerating,
   logoConfig,
+  slideSubstitutions,
   colorSubstitution,
   fontSubstitution,
 }: SlideFilmstripProps) {
@@ -234,8 +242,8 @@ export function SlideFilmstrip({
                 onDelete={onDeleteSlide ? () => onDeleteSlide(slide.id) : undefined}
                 onUndo={onUndoSlide ? () => onUndoSlide(slide.id) : undefined}
                 logoConfig={logoConfig}
-                colorSubstitution={colorSubstitution}
-                fontSubstitution={fontSubstitution}
+                colorSubstitution={slideSubstitutions?.[slide.id]?.colorSubstitution ?? colorSubstitution}
+                fontSubstitution={slideSubstitutions?.[slide.id]?.fontSubstitution ?? fontSubstitution}
               />
             ))}
           </SortableContext>

@@ -338,15 +338,39 @@ export default function CarouselEditorPage({ params }: PageProps) {
       }
     : undefined;
 
-  // Font substitution: replace brand fonts with carousel override fonts at render time
+  // Font substitution for the active slide: slide override → carousel override → brand
   const brandFonts = effectiveBranding?.fonts;
   const overrideFonts = carousel.brandingOverride?.fonts;
+  const activeSlideFontOverride = activeSlideData?.styleOverride?.fonts;
+  const activeHeading = activeSlideFontOverride?.heading ?? overrideFonts?.heading ?? brandFonts?.heading;
+  const activeBody    = activeSlideFontOverride?.body    ?? overrideFonts?.body    ?? brandFonts?.body;
   const fontSubstitution: FontSubstitution | undefined = brandFonts
     ? {
-        heading: overrideFonts?.heading ? { from: brandFonts.heading, to: overrideFonts.heading } : undefined,
-        body: overrideFonts?.body ? { from: brandFonts.body, to: overrideFonts.body } : undefined,
+        heading: activeHeading && activeHeading !== brandFonts.heading ? { from: brandFonts.heading, to: activeHeading } : undefined,
+        body:    activeBody    && activeBody    !== brandFonts.body    ? { from: brandFonts.body,    to: activeBody    } : undefined,
       }
     : undefined;
+
+  // Per-slide substitutions for filmstrip (each thumbnail shows its own overrides)
+  const slideSubstitutions: Record<string, { colorSubstitution?: ColorSubstitution; fontSubstitution?: FontSubstitution }> =
+    brandColors && brandBaseForTheme && brandFonts
+      ? Object.fromEntries(carousel.slides.map((s) => {
+          const sColorOv = activeTheme === "dark" ? s.styleOverride?.colors : s.styleOverride?.colorsLight;
+          const sFonts = s.styleOverride?.fonts;
+          const sHeading = sFonts?.heading ?? overrideFonts?.heading ?? brandFonts.heading;
+          const sBody    = sFonts?.body    ?? overrideFonts?.body    ?? brandFonts.body;
+          return [s.id, {
+            colorSubstitution: {
+              from: { ...brandColors },
+              to: mergeSlideColors(brandBaseForTheme, carouselOverrideColors, sColorOv),
+            },
+            fontSubstitution: {
+              heading: sHeading !== brandFonts.heading ? { from: brandFonts.heading, to: sHeading } : undefined,
+              body:    sBody    !== brandFonts.body    ? { from: brandFonts.body,    to: sBody    } : undefined,
+            },
+          }];
+        }))
+      : {};
 
   return (
     <div className="h-full flex flex-col">
@@ -598,8 +622,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
           onReorderSlides={handleReorderSlides}
           isGenerating={isGenerating}
           logoConfig={logoConfig}
-          colorSubstitution={filmstripColorSub}
-          fontSubstitution={fontSubstitution}
+          slideSubstitutions={slideSubstitutions}
         />
       )}
     </div>
