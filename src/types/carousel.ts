@@ -51,6 +51,7 @@ export interface Slide {
   styleOverride?: {
     colors?: SlideColorSet;
     colorsLight?: SlideColorSet;
+    fonts?: { heading?: string; body?: string };
   };
 }
 

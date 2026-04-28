@@ -27,17 +27,24 @@ export interface FontSubstitution {
 
 /**
  * Replaces each color in `subs.from` with its counterpart in `subs.to`.
- * Handles both lowercase and uppercase hex notation.
+ * Uses a SINGLE regex pass so that swapped colors (e.g. light/dark mode) don't
+ * cascade: replacing A→B then B→A sequentially would turn everything into A again.
  */
 function applyColorSubstitution(html: string, subs: ColorSubstitution): string {
-  let result = html;
+  // Build map: lowercase(from) → replacement
+  const map = new Map<string, string>();
   for (const [key, replacement] of Object.entries(subs.to)) {
     const fromColor = subs.from[key];
     if (!fromColor || fromColor.toLowerCase() === replacement.toLowerCase()) continue;
-    result = result.replaceAll(fromColor.toLowerCase(), replacement.toLowerCase());
-    result = result.replaceAll(fromColor.toUpperCase(), replacement.toUpperCase());
+    map.set(fromColor.toLowerCase(), replacement.toLowerCase());
   }
-  return result;
+  if (map.size === 0) return html;
+
+  // Match any of the source colors (case-insensitive, single pass — no cascade)
+  const pattern = Array.from(map.keys())
+    .map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+  return html.replace(new RegExp(pattern, "gi"), (match) => map.get(match.toLowerCase()) ?? match);
 }
 
 /**

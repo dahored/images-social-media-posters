@@ -200,7 +200,14 @@ Each slide is BODY-LEVEL HTML only. No <!DOCTYPE>, <html>, <head>, or <body> tag
 1. **ROOT ELEMENT**: A single root div set to exact dimensions: width:${dimensions.width}px; height:${dimensions.height}px; overflow:hidden
 2. Inline styles or <style> tags only — no external CSS
 3. Font-family declarations auto-load Google Fonts (e.g., font-family: 'Playfair Display', serif)
-4. Brand colors: slide-background=${effectiveColors.primary}, text-color=${effectiveColors.background}, accent=${effectiveColors.accent}, surface=${effectiveColors.surface} | heading-font="${effectiveFonts.heading}", body-font="${effectiveFonts.body}"
+4. **MANDATORY color mapping** — use EXACTLY these hex values, never swap them:
+   - \`background-color\` of root div and main backgrounds → **${effectiveColors.primary}**
+   - \`color\` property for ALL text (headings, paragraphs, labels, numbers) → **${effectiveColors.background}**
+   - Accent / CTA / highlight elements → **${effectiveColors.accent}**
+   - Secondary decorative tones → **${effectiveColors.secondary}**
+   - Cards / panels / surface backgrounds → **${effectiveColors.surface}**
+   - Heading font: **"${effectiveFonts.heading}"** | Body font: **"${effectiveFonts.body}"**
+   ⚠️ CRITICAL: "${effectiveColors.primary}" is the BACKGROUND — "${effectiveColors.background}" is the TEXT COLOR. Never invert this.
 5. **SAFE ZONE + LOGO CLEARANCE** — padding on root div: ${Math.round(dimensions.width * 0.1)}px sides, ${Math.round(dimensions.height * 0.1)}px top, **${logoTopPx}px bottom** (= UI overlay zone + brand logo strip above it). NEVER place any content below ${logoTopPx}px from the bottom — it will be hidden behind the logo or the Instagram UI.
 6. **DO NOT add any logo** — the system overlays it automatically
 7. Images: /uploads/{filename} paths only
@@ -219,7 +226,10 @@ Each slide is BODY-LEVEL HTML only. No <!DOCTYPE>, <html>, <head>, or <body> tag
 
 ### Color & contrast
 - Text/background contrast ratio > 4.5:1 always
-- Use brand palette: slide-background as the main background, text-color for all text, accent for CTAs and highlights, surface for cards/panels
+- **${effectiveColors.primary}** = main background (background-color of root and layout containers)
+- **${effectiveColors.background}** = all text (color: on every text element, always)
+- **${effectiveColors.accent}** = CTAs, highlights, decorative accents only
+- **${effectiveColors.surface}** = card/panel backgrounds
 - Gradients add depth: linear-gradient(135deg, color1, color2)
 - Solid color slides > busy patterns for readability
 
