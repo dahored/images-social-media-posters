@@ -18,7 +18,7 @@ import { FullscreenPreview } from "@/components/editor/FullscreenPreview";
 import { StyleOverridePanel } from "@/components/editor/StyleOverridePanel";
 import { useI18n } from "@/lib/i18n/context";
 import type { Carousel, AspectRatio, CarouselBrandingOverride, Slide, SlideColorSet } from "@/types/carousel";
-import type { LogoConfig, ColorSubstitution } from "@/lib/slide-html";
+import type { LogoConfig, ColorSubstitution, FontSubstitution } from "@/lib/slide-html";
 import type { EffectiveBranding } from "@/types/account";
 import type { BrandColors } from "@/types/brand";
 
@@ -224,22 +224,28 @@ export default function CarouselEditorPage({ params }: PageProps) {
   }, []);
 
   const handleBrandingOverrideChange = useCallback(async (override: CarouselBrandingOverride) => {
-    await fetch(`/api/carousels/${id}`, {
+    setCarousel((prev) => prev ? { ...prev, brandingOverride: override } : prev);
+    fetch(`/api/carousels/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ brandingOverride: override }),
     });
-    fetchCarousel();
-  }, [id, fetchCarousel]);
+  }, [id]);
 
   const handleSlideOverrideChange = useCallback(async (slideId: string, override: NonNullable<Slide["styleOverride"]>) => {
-    await fetch(`/api/carousels/${id}/slides/${slideId}`, {
+    setCarousel((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        slides: prev.slides.map((s) => s.id === slideId ? { ...s, styleOverride: override } : s),
+      };
+    });
+    fetch(`/api/carousels/${id}/slides/${slideId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ styleOverride: override }),
     });
-    fetchCarousel();
-  }, [id, fetchCarousel]);
+  }, [id]);
 
   if (notFound) {
     return (
@@ -323,6 +329,16 @@ export default function CarouselEditorPage({ params }: PageProps) {
       }
     : undefined;
 
+  // Font substitution: replace brand fonts with carousel override fonts at render time
+  const brandFonts = effectiveBranding?.fonts;
+  const overrideFonts = carousel.brandingOverride?.fonts;
+  const fontSubstitution: FontSubstitution | undefined = brandFonts
+    ? {
+        heading: overrideFonts?.heading ? { from: brandFonts.heading, to: overrideFonts.heading } : undefined,
+        body: overrideFonts?.body ? { from: brandFonts.body, to: overrideFonts.body } : undefined,
+      }
+    : undefined;
+
   return (
     <div className="h-full flex flex-col">
       <TopBar
@@ -351,6 +367,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
         onActiveChange={setActiveSlide}
         logoConfig={logoConfig}
         colorSubstitution={activeSlideColorSub}
+        fontSubstitution={fontSubstitution}
       />
 
       <ConfirmDialog
@@ -527,6 +544,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
             isGenerating={isGenerating}
             logoConfig={logoConfig}
             colorSubstitution={activeSlideColorSub}
+            fontSubstitution={fontSubstitution}
           />
         </div>
 
@@ -568,6 +586,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
           isGenerating={isGenerating}
           logoConfig={logoConfig}
           colorSubstitution={filmstripColorSub}
+          fontSubstitution={fontSubstitution}
         />
       )}
     </div>

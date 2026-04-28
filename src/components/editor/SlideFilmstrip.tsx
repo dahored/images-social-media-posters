@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { SlideRenderer } from "./SlideRenderer";
 import { useI18n } from "@/lib/i18n/context";
 import type { Slide, AspectRatio } from "@/types/carousel";
-import type { LogoConfig, ColorSubstitution } from "@/lib/slide-html";
+import type { LogoConfig, ColorSubstitution, FontSubstitution } from "@/lib/slide-html";
 import { DIMENSIONS, MAX_SLIDES } from "@/types/carousel";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +35,7 @@ interface SlideFilmstripProps {
   isGenerating?: boolean;
   logoConfig?: LogoConfig;
   colorSubstitution?: ColorSubstitution;
+  fontSubstitution?: FontSubstitution;
 }
 
 function SortableSlideThumb({
@@ -49,6 +50,7 @@ function SortableSlideThumb({
   onUndo,
   logoConfig,
   colorSubstitution,
+  fontSubstitution,
 }: {
   slide: Slide;
   index: number;
@@ -61,6 +63,7 @@ function SortableSlideThumb({
   onUndo?: () => void;
   logoConfig?: LogoConfig;
   colorSubstitution?: ColorSubstitution;
+  fontSubstitution?: FontSubstitution;
 }) {
   const { t } = useI18n();
   const {
@@ -107,6 +110,7 @@ function SortableSlideThumb({
           className="w-full h-full"
           logoConfig={logoConfig}
           colorSubstitution={colorSubstitution}
+          fontSubstitution={fontSubstitution}
         />
         {/* Per-slide override indicator dot */}
         {slide.styleOverride && (
@@ -169,6 +173,7 @@ export function SlideFilmstrip({
   isGenerating,
   logoConfig,
   colorSubstitution,
+  fontSubstitution,
 }: SlideFilmstripProps) {
   const { t } = useI18n();
   const { width: slideW, height: slideH } = DIMENSIONS[aspectRatio];
@@ -230,6 +235,7 @@ export function SlideFilmstrip({
                 onUndo={onUndoSlide ? () => onUndoSlide(slide.id) : undefined}
                 logoConfig={logoConfig}
                 colorSubstitution={colorSubstitution}
+                fontSubstitution={fontSubstitution}
               />
             ))}
           </SortableContext>

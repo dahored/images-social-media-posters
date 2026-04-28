@@ -44,13 +44,6 @@ const COLOR_FIELDS: Array<{ key: keyof ColorSet; label: string }> = [
   { key: "surface",    label: "Panel / Superficie" },
 ];
 
-function hasActiveOverrides(o: CarouselBrandingOverride): boolean {
-  const anyColor = (obj?: Record<string, string | undefined>) =>
-    obj && Object.values(obj).some((v) => v != null && v !== "");
-  return !!(anyColor(o.colors) || anyColor(o.colorsLight) ||
-    (o.fonts && Object.values(o.fonts).some((v) => v)));
-}
-
 function hasSlideOverrides(slide?: Slide): boolean {
   if (!slide?.styleOverride) return false;
   return (
@@ -69,8 +62,10 @@ export function StyleOverridePanel({
   activeSlide,
   onSlideOverrideChange,
 }: StyleOverridePanelProps) {
-  const [themeTab, setThemeTab] = useState<"dark" | "light">("dark");
+  const [themeTab, setThemeTab] = useState<"dark" | "light">(override.theme ?? "dark");
   const [panelMode, setPanelMode] = useState<PanelMode>("carousel");
+
+  useEffect(() => { setThemeTab(override.theme ?? "dark"); }, [override.theme]);
 
   // Reset to carousel mode if there's no active slide
   useEffect(() => {
@@ -87,6 +82,11 @@ export function StyleOverridePanel({
 
   useEffect(() => { if (effectiveHeading) loadGoogleFont(effectiveHeading); }, [effectiveHeading]);
   useEffect(() => { if (effectiveBody)    loadGoogleFont(effectiveBody);    }, [effectiveBody]);
+
+  const handleThemeTabChange = (tab: "dark" | "light") => {
+    setThemeTab(tab);
+    onChange({ ...override, theme: tab });
+  };
 
   // ── Carousel mode handlers ────────────────────────────────────────────────
 
@@ -152,7 +152,7 @@ export function StyleOverridePanel({
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <span className="text-sm font-semibold">Estilo del post</span>
         <div className="flex items-center gap-2">
-          {panelMode === "carousel" && hasActiveOverrides(override) && (
+          {panelMode === "carousel" && (
             <button
               onClick={() => onChange({})}
               className="text-xs text-muted-foreground hover:text-accent transition-colors cursor-pointer"
@@ -212,7 +212,7 @@ export function StyleOverridePanel({
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Colores</h3>
             <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-md ml-auto">
               <button
-                onClick={() => setThemeTab("dark")}
+                onClick={() => handleThemeTabChange("dark")}
                 className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
                   themeTab === "dark" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -221,7 +221,7 @@ export function StyleOverridePanel({
                 Oscuro
               </button>
               <button
-                onClick={() => setThemeTab("light")}
+                onClick={() => handleThemeTabChange("light")}
                 className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
                   themeTab === "light" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}

@@ -19,6 +19,12 @@ export interface ColorSubstitution {
   to: Record<string, string>;
 }
 
+/** Describes per-role font family replacements to apply at render time. */
+export interface FontSubstitution {
+  heading?: { from: string; to: string };
+  body?: { from: string; to: string };
+}
+
 /**
  * Replaces each color in `subs.from` with its counterpart in `subs.to`.
  * Handles both lowercase and uppercase hex notation.
@@ -72,10 +78,16 @@ export function extractFontFamilies(html: string): string[] {
  * This is THE shared rendering contract between preview (iframe) and export (Puppeteer).
  * Logo is injected here at system level so the AI never has to manage its position.
  */
+function applyFontSub(html: string, sub: { from: string; to: string }): string {
+  if (!sub.from || !sub.to || sub.from.toLowerCase() === sub.to.toLowerCase()) return html;
+  const escaped = sub.from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return html.replace(new RegExp(escaped, "gi"), sub.to);
+}
+
 export function wrapSlideHtml(
   slideHtml: string,
   aspectRatio: AspectRatio,
-  options?: { inlineFontCss?: string; logoConfig?: LogoConfig; colorSubstitution?: ColorSubstitution }
+  options?: { inlineFontCss?: string; logoConfig?: LogoConfig; colorSubstitution?: ColorSubstitution; fontSubstitution?: FontSubstitution }
 ): string {
   const { width, height } = DIMENSIONS[aspectRatio];
 
@@ -83,6 +95,12 @@ export function wrapSlideHtml(
   let processedHtml = slideHtml;
   if (options?.colorSubstitution) {
     processedHtml = applyColorSubstitution(processedHtml, options.colorSubstitution);
+  }
+  if (options?.fontSubstitution?.heading) {
+    processedHtml = applyFontSub(processedHtml, options.fontSubstitution.heading);
+  }
+  if (options?.fontSubstitution?.body) {
+    processedHtml = applyFontSub(processedHtml, options.fontSubstitution.body);
   }
 
   const fontFamilies = extractFontFamilies(processedHtml);
