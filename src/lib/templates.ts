@@ -13,9 +13,10 @@ async function save(data: TemplatesData): Promise<void> {
   await writeData(FILE, data);
 }
 
-export async function listTemplates(): Promise<Template[]> {
+export async function listTemplates(filter?: { accountId?: string }): Promise<Template[]> {
   const data = await load();
-  return data.templates;
+  if (!filter?.accountId) return data.templates;
+  return data.templates.filter((t) => !t.accountId || t.accountId === filter.accountId);
 }
 
 export async function getTemplate(id: string): Promise<Template | null> {
@@ -42,6 +43,8 @@ export async function saveAsTemplate(
       notes,
     })),
     tags: carousel.tags,
+    scope: carousel.accountId ? "account" : undefined,
+    accountId: carousel.accountId,
     createdAt: now(),
   };
   data.templates.push(template);

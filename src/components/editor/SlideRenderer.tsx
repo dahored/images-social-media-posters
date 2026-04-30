@@ -35,17 +35,31 @@ export function SlideRenderer({
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
   const { width: slideW, height: slideH } = DIMENSIONS[aspectRatio];
 
-  const srcDoc = useMemo(
+  const wrappedHtml = useMemo(
     () => wrapSlideHtml(html, aspectRatio, { logoConfig, colorSubstitution, fontSubstitution, customBackground, accentOverride }),
     [html, aspectRatio, logoConfig, colorSubstitution, fontSubstitution, customBackground, accentOverride]
   );
+
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const blob = new Blob([wrappedHtml], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    setBlobUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [wrappedHtml]);
 
   const measure = useCallback(() => {
     const el = outerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) {
-      setDims({ w: rect.width, h: rect.height });
+    let w = rect.width;
+    let h = rect.height;
+    if (w === 0 || h === 0) {
+      w = el.offsetWidth || el.clientWidth;
+      h = el.offsetHeight || el.clientHeight;
+    }
+    if (w > 0 && h > 0) {
+      setDims((prev) => (prev?.w === w && prev?.h === h ? prev : { w, h }));
     }
   }, []);
 
@@ -55,7 +69,17 @@ export function SlideRenderer({
     const obs = new ResizeObserver(() => measure());
     obs.observe(el);
     measure();
-    return () => obs.disconnect();
+    const r1 = requestAnimationFrame(measure);
+    const t1 = setTimeout(measure, 50);
+    const t2 = setTimeout(measure, 200);
+    const t3 = setTimeout(measure, 800);
+    return () => {
+      cancelAnimationFrame(r1);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      obs.disconnect();
+    };
   }, [measure]);
 
   // Calculate scale to fit the slide into the container
@@ -90,22 +114,24 @@ export function SlideRenderer({
             border: "1px solid rgba(0,0,0,0.06)",
           }}
         >
-          <iframe
-            sandbox=""
-            srcDoc={srcDoc}
-            title="Slide preview"
-            style={{
-              width: slideW,
-              height: slideH,
-              border: "none",
-              transform: `scale(${scale})`,
-              transformOrigin: "top left",
-              position: "absolute",
-              top: 0,
-              left: 0,
-              pointerEvents: "none",
-            }}
-          />
+          {blobUrl && (
+            <iframe
+              sandbox=""
+              src={blobUrl}
+              title="Slide preview"
+              style={{
+                width: slideW,
+                height: slideH,
+                border: "none",
+                transform: `scale(${scale})`,
+                transformOrigin: "top left",
+                position: "absolute",
+                top: 0,
+                left: 0,
+                pointerEvents: "none",
+              }}
+            />
+          )}
           <SafeZoneOverlay aspectRatio={aspectRatio} visible={showSafeZones} />
         </div>
       )}

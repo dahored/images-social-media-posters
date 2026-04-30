@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { listTemplates, saveAsTemplate } from "@/lib/templates";
 import { getCarousel } from "@/lib/carousels";
 
-export async function GET() {
-  const templates = await listTemplates();
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const accountId = url.searchParams.get("accountId") ?? undefined;
+  const templates = await listTemplates({ accountId });
   return NextResponse.json({ templates });
 }
 

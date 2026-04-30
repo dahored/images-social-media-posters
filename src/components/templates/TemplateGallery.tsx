@@ -25,10 +25,19 @@ export function TemplateGallery() {
   ];
 
   useEffect(() => {
-    fetch("/api/templates")
-      .then((r) => r.json())
-      .then((data) => { setTemplates(data.templates || []); setLoading(false); })
-      .catch(() => setLoading(false));
+    const fetchTemplates = () => {
+      const accountId = localStorage.getItem("activeAccountId");
+      const url = accountId ? `/api/templates?accountId=${accountId}` : "/api/templates";
+      setLoading(true);
+      fetch(url)
+        .then((r) => r.json())
+        .then((data) => { setTemplates(data.templates || []); setLoading(false); })
+        .catch(() => setLoading(false));
+    };
+    fetchTemplates();
+    const handleAccountChange = () => fetchTemplates();
+    window.addEventListener("account-changed", handleAccountChange);
+    return () => window.removeEventListener("account-changed", handleAccountChange);
   }, []);
 
   const handleUse = useCallback(
