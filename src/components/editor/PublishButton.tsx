@@ -127,7 +127,7 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
 
       <Dialog.Portal>
         <Dialog.Overlay data-oc-overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
-        <Dialog.Content data-oc-dialog className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm rounded-xl bg-surface border border-border p-5 shadow-2xl -translate-x-1/2 -translate-y-1/2 max-h-[90vh] overflow-y-auto">
+        <Dialog.Content data-oc-dialog className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm rounded-xl bg-surface border border-border p-5 shadow-2xl -translate-x-1/2 -translate-y-1/2 max-h-[min(600px,85vh)] overflow-y-auto">
 
           {/* Share-ready panel (Facebook / Instagram) */}
           {activeTarget ? (

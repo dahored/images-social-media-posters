@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Copy, Check, Loader2, ArrowLeft, ExternalLink } from "lucide-react";
+import { Copy, Check, Loader2, ArrowLeft, ExternalLink, Download } from "lucide-react";
 
 interface ShareImage {
   name: string;
@@ -71,6 +71,13 @@ export function ShareReadyPanel({
     }
   };
 
+  const downloadImage = (img: ShareImage) => {
+    const a = document.createElement("a");
+    a.href = img.dataUrl;
+    a.download = img.name;
+    a.click();
+  };
+
   const textToCopy = [carouselName, caption, hashtags?.join(" ")].filter(Boolean).join("\n\n");
 
   const copyText = async () => {
@@ -114,7 +121,7 @@ export function ShareReadyPanel({
         <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{loadError}</p>
       )}
       {!loading && images.length > 0 && (
-        <div className={`grid gap-2 ${images.length === 1 ? "grid-cols-1" : "grid-cols-2"} max-h-[50vh] overflow-y-auto`}>
+        <div className={`grid gap-2 ${images.length === 1 ? "grid-cols-1" : "grid-cols-2"} max-h-72 overflow-y-auto`}>
           {images.map((img, idx) => (
             <div key={idx} className="relative group rounded-lg overflow-hidden bg-muted aspect-square">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -123,18 +130,26 @@ export function ShareReadyPanel({
                 alt={`Slide ${idx + 1}`}
                 className="w-full h-full object-contain"
               />
+              {/* Overlay on hover */}
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* Download — primary, centered */}
+                <button
+                  onClick={() => downloadImage(img)}
+                  className="flex flex-col items-center gap-1 text-white"
+                >
+                  <Download className="h-7 w-7" />
+                  <span className="text-xs font-medium">
+                    {images.length > 1 ? `Slide ${idx + 1}` : "Descargar"}
+                  </span>
+                </button>
+              </div>
+              {/* Copy — small icon, top-right corner */}
               <button
-                onClick={() => copyImage(img, idx)}
-                className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => { e.stopPropagation(); copyImage(img, idx); }}
+                title="Copiar al portapapeles"
+                className="absolute top-1.5 right-1.5 h-7 w-7 rounded-md flex items-center justify-center bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
               >
-                {copiedImg === idx ? (
-                  <Check className="h-6 w-6 text-white" />
-                ) : (
-                  <Copy className="h-6 w-6 text-white" />
-                )}
-                <span className="text-white text-xs font-medium">
-                  {copiedImg === idx ? "¡Copiada!" : images.length > 1 ? `Copiar slide ${idx + 1}` : "Copiar imagen"}
-                </span>
+                {copiedImg === idx ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               </button>
             </div>
           ))}
