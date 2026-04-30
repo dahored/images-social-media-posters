@@ -134,9 +134,10 @@ export async function POST(
     const ratioSlug = carousel.aspectRatio.replace(":", "x");
     const safeName = `${brandSlug}_${networkSlug}_${titleSlug}_${ratioSlug}`;
 
-    // format=json: return all PNGs as base64 JSON (for Web Share API)
+    // format=json: return PNGs as base64 JSON (for Web Share API / clipboard)
     if (formatJson) {
-      const files = pngBuffers.map(({ name, buffer }) => ({
+      const buffers = carousel.kind === "post" ? [pngBuffers[0]] : pngBuffers;
+      const files = buffers.map(({ name, buffer }) => ({
         name,
         data: Buffer.from(buffer).toString("base64"),
       }));

@@ -184,6 +184,11 @@ export const es: Record<TranslationKey, string> = {
   shareFilesDesc: "Compartir en Instagram, Facebook u otras apps",
   sharing: "Preparando...",
   shared: "¡Listo!",
+  copyAndOpen: "¡Copiada! Pégala en",
+  shareToFacebook: "Compartir en Facebook",
+  shareToInstagram: "Compartir en Instagram",
+  shareToFacebookDesc: "Copia la imagen · abre Facebook",
+  shareToInstagramDesc: "Copia la imagen · abre Instagram",
 
   // Export button
   exportPNG: "Exportar PNG",

@@ -15,6 +15,25 @@ interface PublishButtonProps {
   isPost?: boolean;
 }
 
+type CopyTarget = "facebook" | "instagram";
+
+const TARGETS: { id: CopyTarget; label: string; descKey: string; url: string; icon: string }[] = [
+  {
+    id: "facebook",
+    label: "Facebook",
+    descKey: "shareToFacebookDesc",
+    url: "https://www.facebook.com/",
+    icon: "f",
+  },
+  {
+    id: "instagram",
+    label: "Instagram",
+    descKey: "shareToInstagramDesc",
+    url: "https://www.instagram.com/",
+    icon: "ig",
+  },
+];
+
 export function PublishButton({ carouselId, carouselName, caption, hashtags, slideCount, isPost = false }: PublishButtonProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -23,8 +42,12 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
   const [done, setDone] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shared, setShared] = useState(false);
+  const [copyingFor, setCopyingFor] = useState<CopyTarget | null>(null);
+  const [copiedFor, setCopiedFor] = useState<CopyTarget | null>(null);
   const [error, setError] = useState<string | null>(null);
+
   const webShareSupported = typeof navigator !== "undefined" && "share" in navigator && "canShare" in navigator;
+  const clipboardSupported = typeof navigator !== "undefined" && "clipboard" in navigator && "ClipboardItem" in window;
 
   useEffect(() => {
     if (!open) return;
@@ -65,7 +88,6 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
         setShared(true);
         setTimeout(() => { setShared(false); setOpen(false); }, 1500);
       } else {
-        // Browser doesn't support file sharing — fall back to download
         handleDownload();
       }
     } catch (err) {
@@ -73,6 +95,28 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
       setError(err instanceof Error ? err.message : "Share failed");
     } finally {
       setSharing(false);
+    }
+  };
+
+  const handleCopyAndOpen = async (target: CopyTarget) => {
+    setCopyingFor(target);
+    setError(null);
+    try {
+      const res = await fetch(`/api/carousels/${carouselId}/export?format=json`, { method: "POST" });
+      if (!res.ok) throw new Error("Export failed");
+      const { files: fileData } = await res.json() as { files: { name: string; data: string }[] };
+      const first = fileData[0];
+      const bytes = Uint8Array.from(atob(first.data), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: "image/png" });
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      const url = TARGETS.find((t) => t.id === target)!.url;
+      window.open(url, "_blank", "noopener");
+      setCopiedFor(target);
+      setTimeout(() => setCopiedFor(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Copy failed");
+    } finally {
+      setCopyingFor(null);
     }
   };
 
@@ -122,6 +166,7 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
           </div>
 
           <div className="space-y-2">
+            {/* Download */}
             <button
               onClick={handleDownload}
               className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors cursor-pointer"
@@ -139,6 +184,7 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
               </div>
             </button>
 
+            {/* Web Share API (mobile / macOS Safari) */}
             {webShareSupported && (
               <button
                 onClick={handleShare}
@@ -158,13 +204,48 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
                   <div className="text-sm font-medium">
                     {shared ? t("shared") : sharing ? t("sharing") : t("shareFiles")}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {t("shareFilesDesc")}
-                  </div>
+                  <div className="text-xs text-muted-foreground">{t("shareFilesDesc")}</div>
                 </div>
               </button>
             )}
 
+            {/* Clipboard + open (Chrome desktop) */}
+            {clipboardSupported && TARGETS.map((target) => {
+              const isCopying = copyingFor === target.id;
+              const isCopied = copiedFor === target.id;
+              return (
+                <button
+                  key={target.id}
+                  onClick={() => handleCopyAndOpen(target.id)}
+                  disabled={!!copyingFor || !!copiedFor}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors disabled:opacity-60 cursor-pointer"
+                >
+                  <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground select-none">
+                    {isCopying ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isCopied ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      target.icon.toUpperCase()
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium">
+                      {isCopied
+                        ? `${t("copyAndOpen")} ${target.label}`
+                        : isCopying
+                        ? t("sharing")
+                        : target.label}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {isCopied ? "Cmd+V / Ctrl+V para pegar" : t(target.descKey as Parameters<typeof t>[0])}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+
+            {/* Telegram */}
             {telegramConfigured ? (
               <button
                 onClick={handleTelegram}

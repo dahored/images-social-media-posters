@@ -182,6 +182,11 @@ export const en = {
   shareFilesDesc: "Share to Instagram, Facebook or other apps",
   sharing: "Preparing...",
   shared: "Done!",
+  copyAndOpen: "Copied! Paste it in",
+  shareToFacebook: "Share to Facebook",
+  shareToInstagram: "Share to Instagram",
+  shareToFacebookDesc: "Copies image · opens Facebook",
+  shareToInstagramDesc: "Copies image · opens Instagram",
 
   // Export button
   exportPNG: "Export PNG",
