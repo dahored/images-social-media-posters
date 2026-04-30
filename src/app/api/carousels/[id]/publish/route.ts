@@ -34,7 +34,8 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { destination, chatId: bodyChatId, accountId } = body;
+  const { destination, chatId: bodyChatId, accountId: bodyAccountId } = body;
+  const accountId = bodyAccountId ?? carousel.accountId;
 
   const ts = new Date().toISOString();
 
@@ -134,11 +135,12 @@ export async function POST(
         const slideColorOv = slideTheme === "dark"
           ? slide.styleOverride?.colors
           : slide.styleOverride?.colorsLight;
+        const mergedColors = mergeColorsPub(slideBase, slideCarouselOv, slideColorOv);
         const colorSubstitution: ColorSubstitution = {
-          from: { ...brandDark },
-          to: mergeColorsPub(slideBase, slideCarouselOv, slideColorOv),
+          from: { ...slideBase },
+          to: mergedColors,
         };
-        return { colorSubstitution, fontSubstitution: slideFontSubPub, customBackground: slide.styleOverride?.customBackground, logoConfig: slideLogoConfig };
+        return { colorSubstitution, fontSubstitution: slideFontSubPub, customBackground: slide.styleOverride?.customBackground, logoConfig: slideLogoConfig, accentOverride: mergedColors.accent };
       }
 
       const pngBuffers = await exportAllSlides(
