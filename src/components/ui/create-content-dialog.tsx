@@ -37,7 +37,9 @@ export function CreateContentDialog({ open, onOpenChange, onCreate }: CreateCont
 
   const loadTemplates = useCallback(async (k: ContentKind) => {
     setLoadingTemplates(true);
-    const d = await fetch("/api/templates").then((r) => r.json()).catch(() => ({ templates: [] }));
+    const accountId = localStorage.getItem("activeAccountId");
+    const url = accountId ? `/api/templates?accountId=${accountId}` : "/api/templates";
+    const d = await fetch(url).then((r) => r.json()).catch(() => ({ templates: [] }));
     const all: Template[] = d.templates || [];
     setTemplates(all.filter((tmpl) => !tmpl.kind || tmpl.kind === k));
     setLoadingTemplates(false);
