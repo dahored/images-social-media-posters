@@ -102,7 +102,6 @@ export default function TelegramSettingsPage() {
                   <Button
                     onClick={handleTest}
                     variant="outline"
-                    size="sm"
                     disabled={!botToken || testing}
                   >
                     {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}

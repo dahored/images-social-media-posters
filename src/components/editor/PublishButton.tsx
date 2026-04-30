@@ -2,23 +2,39 @@
 
 import { useState, useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Send, Download, Loader2, Check, X, ChevronDown } from "lucide-react";
+import { Send, Download, Loader2, Check, X, ChevronDown, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/context";
+import { ShareReadyPanel } from "./ShareReadyPanel";
 
 interface PublishButtonProps {
   carouselId: string;
+  carouselName?: string;
+  caption?: string;
+  hashtags?: string[];
   slideCount: number;
   isPost?: boolean;
 }
 
-export function PublishButton({ carouselId, slideCount, isPost = false }: PublishButtonProps) {
+const SOCIAL_TARGETS = [
+  { id: "facebook",  label: "Facebook",  url: "https://www.facebook.com/",  icon: "F" },
+  { id: "instagram", label: "Instagram", url: "https://www.instagram.com/", icon: "IG" },
+] as const;
+
+type SocialTargetId = typeof SOCIAL_TARGETS[number]["id"];
+
+export function PublishButton({ carouselId, carouselName, caption, hashtags, slideCount, isPost = false }: PublishButtonProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [telegramConfigured, setTelegramConfigured] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [done, setDone] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shared, setShared] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shareTarget, setShareTarget] = useState<SocialTargetId | null>(null);
+
+  const webShareSupported = typeof navigator !== "undefined" && "share" in navigator && "canShare" in navigator;
 
   useEffect(() => {
     if (!open) return;
@@ -26,6 +42,11 @@ export function PublishButton({ carouselId, slideCount, isPost = false }: Publis
       .then((r) => r.json())
       .then((d) => setTelegramConfigured(d.configured || false))
       .catch(() => {});
+  }, [open]);
+
+  // Reset share panel when dialog closes
+  useEffect(() => {
+    if (!open) setShareTarget(null);
   }, [open]);
 
   const handleDownload = async () => {
@@ -39,6 +60,34 @@ export function PublishButton({ carouselId, slideCount, isPost = false }: Publis
     a.download = isPost ? `post-${carouselId}.png` : `carousel-${carouselId}.zip`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleShare = async () => {
+    setSharing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/carousels/${carouselId}/export?format=json`, { method: "POST" });
+      if (!res.ok) throw new Error("Export failed");
+      const { files: fileData } = await res.json() as { files: { name: string; data: string }[] };
+      const files = fileData.map(({ name, data }) => {
+        const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+        return new File([bytes], name, { type: "image/png" });
+      });
+      if (navigator.canShare({ files })) {
+        const parts = [caption, hashtags?.join(" ")].filter(Boolean);
+        const text = parts.length > 0 ? parts.join("\n\n") : undefined;
+        await navigator.share({ files, title: carouselName, text });
+        setShared(true);
+        setTimeout(() => { setShared(false); setOpen(false); }, 1500);
+      } else {
+        handleDownload();
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      setError(err instanceof Error ? err.message : "Share failed");
+    } finally {
+      setSharing(false);
+    }
   };
 
   const handleTelegram = async () => {
@@ -64,6 +113,8 @@ export function PublishButton({ carouselId, slideCount, isPost = false }: Publis
     }
   };
 
+  const activeTarget = SOCIAL_TARGETS.find((t) => t.id === shareTarget) ?? null;
+
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
@@ -76,74 +127,111 @@ export function PublishButton({ carouselId, slideCount, isPost = false }: Publis
 
       <Dialog.Portal>
         <Dialog.Overlay data-oc-overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
-        <Dialog.Content data-oc-dialog className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm rounded-xl bg-surface border border-border p-5 shadow-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <Dialog.Title className="text-sm font-semibold">{t("publish")}</Dialog.Title>
-            <Dialog.Close asChild>
-              <button className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted">
-                <X className="h-4 w-4" />
-              </button>
-            </Dialog.Close>
-          </div>
+        <Dialog.Content data-oc-dialog className="fixed z-50 w-full max-w-sm rounded-xl bg-surface border border-border p-5 shadow-2xl max-h-[min(600px,85vh)] overflow-y-auto" style={{ left: "50%", top: "50%" }}>
 
-          <div className="space-y-2">
-            <button
-              onClick={handleDownload}
-              className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors cursor-pointer"
-            >
-              <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
-                <Download className="h-4 w-4" />
+          {/* Share-ready panel (Facebook / Instagram) */}
+          {activeTarget ? (
+            <ShareReadyPanel
+              carouselId={carouselId}
+              carouselName={carouselName}
+              caption={caption}
+              hashtags={hashtags}
+              target={activeTarget}
+              onBack={() => setShareTarget(null)}
+            />
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <Dialog.Title className="text-sm font-semibold">{t("publish")}</Dialog.Title>
+                <Dialog.Close asChild>
+                  <button className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted">
+                    <X className="h-4 w-4" />
+                  </button>
+                </Dialog.Close>
               </div>
-              <div>
-                <div className="text-sm font-medium">
-                  {isPost ? t("downloadPNG") : t("downloadZIP")}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {isPost ? t("singleImageFile") : t("allSlidesZIP")}
-                </div>
-              </div>
-            </button>
 
-            {telegramConfigured ? (
-              <button
-                onClick={handleTelegram}
-                disabled={publishing || done}
-                className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors disabled:opacity-60"
-              >
-                <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                  {publishing ? (
-                    <Loader2 className="h-4 w-4 text-accent animate-spin" />
-                  ) : done ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Send className="h-4 w-4 text-accent" />
-                  )}
-                </div>
-                <div>
-                  <div className="text-sm font-medium">
-                    {done ? t("sent") : publishing ? t("sending") : t("sendToTelegram")}
+              <div className="space-y-2">
+                {/* Download */}
+                <button
+                  onClick={handleDownload}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors cursor-pointer"
+                >
+                  <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
+                    <Download className="h-4 w-4" />
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {isPost ? t("sendImageToChannel") : t("sendSlidesMediaGroup")}
+                  <div>
+                    <div className="text-sm font-medium">{isPost ? t("downloadPNG") : t("downloadZIP")}</div>
+                    <div className="text-xs text-muted-foreground">{isPost ? t("singleImageFile") : t("allSlidesZIP")}</div>
                   </div>
-                </div>
-              </button>
-            ) : (
-              <div className="p-3 rounded-lg border border-dashed border-border text-center">
-                <p className="text-xs text-muted-foreground">
-                  {t("telegramNotConfigured")}{" "}
-                  <a href="/settings/telegram" className="text-accent underline">
-                    {t("telegramSetUpNow")}
-                  </a>
-                </p>
-              </div>
-            )}
-          </div>
+                </button>
 
-          {error && (
-            <p className="mt-3 text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-              {error}
-            </p>
+                {/* Web Share API — mobile / macOS Safari */}
+                {webShareSupported && (
+                  <button
+                    onClick={handleShare}
+                    disabled={sharing || shared}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors disabled:opacity-60 cursor-pointer"
+                  >
+                    <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                      {sharing ? <Loader2 className="h-4 w-4 text-accent animate-spin" /> : shared ? <Check className="h-4 w-4 text-green-500" /> : <Share2 className="h-4 w-4 text-accent" />}
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium">{shared ? t("shared") : sharing ? t("sharing") : t("shareFiles")}</div>
+                      <div className="text-xs text-muted-foreground">{t("shareFilesDesc")}</div>
+                    </div>
+                  </button>
+                )}
+
+                {/* Facebook / Instagram — show share panel */}
+                {SOCIAL_TARGETS.map((target) => (
+                  <button
+                    key={target.id}
+                    onClick={() => setShareTarget(target.id)}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors cursor-pointer"
+                  >
+                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground select-none">
+                      {target.icon}
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium">{target.label}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {target.id === "instagram"
+                          ? isPost ? "Descarga la imagen y el texto" : "Descarga cada slide y el texto"
+                          : isPost ? "Copia la imagen y el texto" : "Copia cada slide y el texto"}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+
+                {/* Telegram */}
+                {telegramConfigured ? (
+                  <button
+                    onClick={handleTelegram}
+                    disabled={publishing || done}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors disabled:opacity-60"
+                  >
+                    <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                      {publishing ? <Loader2 className="h-4 w-4 text-accent animate-spin" /> : done ? <Check className="h-4 w-4 text-green-500" /> : <Send className="h-4 w-4 text-accent" />}
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium">{done ? t("sent") : publishing ? t("sending") : t("sendToTelegram")}</div>
+                      <div className="text-xs text-muted-foreground">{isPost ? t("sendImageToChannel") : t("sendSlidesMediaGroup")}</div>
+                    </div>
+                  </button>
+                ) : (
+                  <div className="p-3 rounded-lg border border-dashed border-border text-center">
+                    <p className="text-xs text-muted-foreground">
+                      {t("telegramNotConfigured")}{" "}
+                      <a href="/settings/telegram" className="text-accent underline">{t("telegramSetUpNow")}</a>
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {error && (
+                <p className="mt-3 text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
+              )}
+            </>
           )}
         </Dialog.Content>
       </Dialog.Portal>

@@ -590,6 +590,9 @@ export default function CarouselEditorPage({ params }: PageProps) {
               </Button>
               <PublishButton
                 carouselId={carousel.id}
+                carouselName={carousel.name}
+                caption={carousel.caption}
+                hashtags={carousel.hashtags}
                 slideCount={carousel.slides.length}
                 isPost={carousel.kind === "post"}
               />

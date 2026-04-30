@@ -13,7 +13,7 @@ import { TemplateGallery } from "@/components/templates/TemplateGallery";
 import { useI18n } from "@/lib/i18n/context";
 import type { Carousel, AspectRatio } from "@/types/carousel";
 import type { EffectiveBranding } from "@/types/account";
-import type { ColorSubstitution } from "@/lib/slide-html";
+import type { ColorSubstitution, FontSubstitution } from "@/lib/slide-html";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -52,22 +52,42 @@ export default function DashboardPage() {
     return () => window.removeEventListener("account-changed", handleAccountChange);
   }, [fetchCarousels, fetchBranding]);
 
-  function getCarouselColorSub(carousel: Carousel): ColorSubstitution | undefined {
-    if (!activeBranding) return undefined;
+  function getSlideRendererProps(carousel: Carousel): {
+    colorSubstitution?: ColorSubstitution;
+    accentOverride?: string;
+    fontSubstitution?: FontSubstitution;
+  } {
+    if (!activeBranding) return {};
     const brandDark = activeBranding.colors;
     const brandLight = activeBranding.colorsLight;
-    const theme = carousel.brandingOverride?.theme ?? "dark";
+
+    const slide0Override = carousel.slides[0]?.styleOverride;
+    const theme = slide0Override?.theme ?? carousel.brandingOverride?.theme ?? "dark";
     const base = theme === "dark" ? brandDark : (brandLight ?? brandDark);
+
     const carOv = theme === "dark" ? carousel.brandingOverride?.colors : carousel.brandingOverride?.colorsLight;
+    const slideOv = theme === "dark" ? slide0Override?.colors : slide0Override?.colorsLight;
+
+    const toColors = {
+      primary:    slideOv?.primary    ?? carOv?.primary    ?? base.primary,
+      secondary:  slideOv?.secondary  ?? carOv?.secondary  ?? base.secondary,
+      accent:     slideOv?.accent     ?? carOv?.accent     ?? base.accent,
+      background: slideOv?.background ?? carOv?.background ?? base.background,
+      surface:    slideOv?.surface    ?? carOv?.surface    ?? base.surface,
+    };
+
+    const brandFonts = activeBranding.fonts;
+    const overrideFonts = carousel.brandingOverride?.fonts;
+    const slideFonts = slide0Override?.fonts;
+    const activeHeading = slideFonts?.heading ?? overrideFonts?.heading ?? brandFonts?.heading;
+    const activeBody    = slideFonts?.body    ?? overrideFonts?.body    ?? brandFonts?.body;
     return {
-      from: { ...brandDark },
-      to: {
-        primary:    carOv?.primary    ?? base.primary,
-        secondary:  carOv?.secondary  ?? base.secondary,
-        accent:     carOv?.accent     ?? base.accent,
-        background: carOv?.background ?? base.background,
-        surface:    carOv?.surface    ?? base.surface,
-      },
+      colorSubstitution: { from: { ...base }, to: toColors },
+      accentOverride: toColors.accent,
+      fontSubstitution: brandFonts ? {
+        heading: activeHeading ? { from: brandFonts.heading, to: activeHeading } : undefined,
+        body:    activeBody    ? { from: brandFonts.body,    to: activeBody    } : undefined,
+      } : undefined,
     };
   }
 
@@ -254,7 +274,7 @@ export default function DashboardPage() {
                         html={carousel.slides[0].html}
                         aspectRatio={carousel.aspectRatio}
                         className="w-full h-full"
-                        colorSubstitution={getCarouselColorSub(carousel)}
+                        {...getSlideRendererProps(carousel)}
                       />
                     ) : (
                       <Layers className="h-8 w-8 text-muted-foreground/30" />
