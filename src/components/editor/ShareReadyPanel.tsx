@@ -14,7 +14,7 @@ interface ShareReadyPanelProps {
   carouselName?: string;
   caption?: string;
   hashtags?: string[];
-  target: { label: string; url: string };
+  target: { id: string; label: string; url: string };
   onBack: () => void;
 }
 
