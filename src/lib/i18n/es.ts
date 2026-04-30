@@ -180,6 +180,10 @@ export const es: Record<TranslationKey, string> = {
   sendSlidesMediaGroup: "Enviar todas las diapositivas como grupo",
   telegramNotConfigured: "Telegram no configurado.",
   telegramSetUpNow: "Configurar ahora",
+  shareFiles: "Compartir imágenes",
+  shareFilesDesc: "Compartir en Instagram, Facebook u otras apps",
+  sharing: "Preparando...",
+  shared: "¡Listo!",
 
   // Export button
   exportPNG: "Exportar PNG",

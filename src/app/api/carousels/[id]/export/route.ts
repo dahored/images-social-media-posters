@@ -17,6 +17,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const url = new URL(_request.url);
+  const formatJson = url.searchParams.get("format") === "json";
   const carousel = await getCarousel(id);
 
   if (!carousel) {
@@ -131,6 +133,15 @@ export async function POST(
     const titleSlug = carousel.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const ratioSlug = carousel.aspectRatio.replace(":", "x");
     const safeName = `${brandSlug}_${networkSlug}_${titleSlug}_${ratioSlug}`;
+
+    // format=json: return all PNGs as base64 JSON (for Web Share API)
+    if (formatJson) {
+      const files = pngBuffers.map(({ name, buffer }) => ({
+        name,
+        data: Buffer.from(buffer).toString("base64"),
+      }));
+      return NextResponse.json({ files });
+    }
 
     // Single-image post: return PNG directly
     if (carousel.kind === "post") {

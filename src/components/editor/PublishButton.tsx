@@ -2,23 +2,27 @@
 
 import { useState, useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Send, Download, Loader2, Check, X, ChevronDown } from "lucide-react";
+import { Send, Download, Loader2, Check, X, ChevronDown, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/context";
 
 interface PublishButtonProps {
   carouselId: string;
+  carouselName?: string;
   slideCount: number;
   isPost?: boolean;
 }
 
-export function PublishButton({ carouselId, slideCount, isPost = false }: PublishButtonProps) {
+export function PublishButton({ carouselId, carouselName, slideCount, isPost = false }: PublishButtonProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [telegramConfigured, setTelegramConfigured] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [done, setDone] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shared, setShared] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const webShareSupported = typeof navigator !== "undefined" && "share" in navigator && "canShare" in navigator;
 
   useEffect(() => {
     if (!open) return;
@@ -39,6 +43,33 @@ export function PublishButton({ carouselId, slideCount, isPost = false }: Publis
     a.download = isPost ? `post-${carouselId}.png` : `carousel-${carouselId}.zip`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleShare = async () => {
+    setSharing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/carousels/${carouselId}/export?format=json`, { method: "POST" });
+      if (!res.ok) throw new Error("Export failed");
+      const { files: fileData } = await res.json() as { files: { name: string; data: string }[] };
+      const files = fileData.map(({ name, data }) => {
+        const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+        return new File([bytes], name, { type: "image/png" });
+      });
+      if (navigator.canShare({ files })) {
+        await navigator.share({ files, title: carouselName });
+        setShared(true);
+        setTimeout(() => { setShared(false); setOpen(false); }, 1500);
+      } else {
+        // Browser doesn't support file sharing — fall back to download
+        handleDownload();
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      setError(err instanceof Error ? err.message : "Share failed");
+    } finally {
+      setSharing(false);
+    }
   };
 
   const handleTelegram = async () => {
@@ -103,6 +134,32 @@ export function PublishButton({ carouselId, slideCount, isPost = false }: Publis
                 </div>
               </div>
             </button>
+
+            {webShareSupported && (
+              <button
+                onClick={handleShare}
+                disabled={sharing || shared}
+                className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors disabled:opacity-60 cursor-pointer"
+              >
+                <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                  {sharing ? (
+                    <Loader2 className="h-4 w-4 text-accent animate-spin" />
+                  ) : shared ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Share2 className="h-4 w-4 text-accent" />
+                  )}
+                </div>
+                <div>
+                  <div className="text-sm font-medium">
+                    {shared ? t("shared") : sharing ? t("sharing") : t("shareFiles")}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {t("shareFilesDesc")}
+                  </div>
+                </div>
+              </button>
+            )}
 
             {telegramConfigured ? (
               <button

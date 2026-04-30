@@ -178,6 +178,10 @@ export const en = {
   sendSlidesMediaGroup: "Send all slides as media group",
   telegramNotConfigured: "Telegram not configured.",
   telegramSetUpNow: "Set up now",
+  shareFiles: "Share images",
+  shareFilesDesc: "Share to Instagram, Facebook or other apps",
+  sharing: "Preparing...",
+  shared: "Done!",
 
   // Export button
   exportPNG: "Export PNG",
