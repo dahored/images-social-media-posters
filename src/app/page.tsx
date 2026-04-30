@@ -21,6 +21,8 @@ export default function DashboardPage() {
   const [carousels, setCarousels] = useState<Carousel[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeBranding, setActiveBranding] = useState<EffectiveBranding | null>(null);
+  // Bump on each (re)load so SlideRenderer instances remount fresh and re-measure
+  const [reloadKey, setReloadKey] = useState(0);
 
   const fetchBranding = useCallback(() => {
     const id = localStorage.getItem("activeAccountId");
@@ -34,11 +36,13 @@ export default function DashboardPage() {
   const fetchCarousels = useCallback(() => {
     const id = localStorage.getItem("activeAccountId");
     const url = id ? `/api/carousels?accountId=${id}` : "/api/carousels";
+    setCarousels([]);
     setLoading(true);
     fetch(url)
       .then((r) => r.json())
       .then((d) => {
         setCarousels(d.carousels || []);
+        setReloadKey((k) => k + 1);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -268,16 +272,19 @@ export default function DashboardPage() {
                     </button>
                   </div>
 
-                  <div className="h-28 rounded-lg bg-muted mb-3 flex items-center justify-center overflow-hidden">
+                  <div className="relative h-28 rounded-lg bg-muted mb-3 overflow-hidden">
                     {carousel.slides.length > 0 ? (
                       <SlideRenderer
+                        key={`${carousel.id}-${reloadKey}`}
                         html={carousel.slides[0].html}
                         aspectRatio={carousel.aspectRatio}
                         className="w-full h-full"
                         {...getSlideRendererProps(carousel)}
                       />
                     ) : (
-                      <Layers className="h-8 w-8 text-muted-foreground/30" />
+                      <div className="h-full flex items-center justify-center">
+                        <Layers className="h-8 w-8 text-muted-foreground/30" />
+                      </div>
                     )}
                   </div>
                   <h3 className="font-semibold text-sm group-hover:text-accent transition-colors truncate">

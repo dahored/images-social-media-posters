@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   serverExternalPackages: ["sharp", "archiver", "puppeteer"],
   async headers() {
+    const isDev = process.env.NODE_ENV !== "production";
     return [
       {
         source: "/(.*)",
@@ -19,6 +20,11 @@ const nextConfig: NextConfig = {
               "connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com",
             ].join("; "),
           },
+          ...(isDev ? [
+            { key: "Cache-Control", value: "no-store, must-revalidate" },
+            { key: "Pragma", value: "no-cache" },
+            { key: "Expires", value: "0" },
+          ] : []),
         ],
       },
     ];
