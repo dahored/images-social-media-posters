@@ -9,11 +9,13 @@ import { useI18n } from "@/lib/i18n/context";
 interface PublishButtonProps {
   carouselId: string;
   carouselName?: string;
+  caption?: string;
+  hashtags?: string[];
   slideCount: number;
   isPost?: boolean;
 }
 
-export function PublishButton({ carouselId, carouselName, slideCount, isPost = false }: PublishButtonProps) {
+export function PublishButton({ carouselId, carouselName, caption, hashtags, slideCount, isPost = false }: PublishButtonProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [telegramConfigured, setTelegramConfigured] = useState(false);
@@ -57,7 +59,9 @@ export function PublishButton({ carouselId, carouselName, slideCount, isPost = f
         return new File([bytes], name, { type: "image/png" });
       });
       if (navigator.canShare({ files })) {
-        await navigator.share({ files, title: carouselName });
+        const parts = [caption, hashtags?.join(" ")].filter(Boolean);
+        const text = parts.length > 0 ? parts.join("\n\n") : undefined;
+        await navigator.share({ files, title: carouselName, text });
         setShared(true);
         setTimeout(() => { setShared(false); setOpen(false); }, 1500);
       } else {
