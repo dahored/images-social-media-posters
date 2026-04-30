@@ -114,7 +114,7 @@ export function ShareReadyPanel({
         <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{loadError}</p>
       )}
       {!loading && images.length > 0 && (
-        <div className={`grid gap-2 ${images.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+        <div className={`grid gap-2 ${images.length === 1 ? "grid-cols-1" : "grid-cols-2"} max-h-[50vh] overflow-y-auto`}>
           {images.map((img, idx) => (
             <div key={idx} className="relative group rounded-lg overflow-hidden bg-muted aspect-square">
               {/* eslint-disable-next-line @next/next/no-img-element */}
