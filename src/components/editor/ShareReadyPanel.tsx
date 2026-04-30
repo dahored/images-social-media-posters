@@ -173,7 +173,9 @@ export function ShareReadyPanel({
       )}
 
       <p className="text-xs text-muted-foreground text-center">
-        Copia cada imagen, ábrela en {target.label} y pégala en el compositor
+        {target.id === "instagram"
+          ? `Descarga cada imagen, ábrela en ${target.label} y súbela con el selector de archivos`
+          : `Copia cada imagen, ábrela en ${target.label} y pégala en el compositor`}
       </p>
     </div>
   );
