@@ -507,4 +507,7 @@ export const es: Record<TranslationKey, string> = {
   claudeManualFallbackDesc: "Ejecuta este comando en tu terminal, luego escribe /login y presiona Enter:",
   claudeManualFallbackStep2: "Dentro de la sesión de Claude, escribe",
   claudeCheckStatusBtn: "Verificar estado",
+  claudePasteCodeTitle: "Pega el código de autorización",
+  claudePasteCodeDesc: "Copia el código que aparece en la ventana de Claude y pégalo aquí:",
+  claudeCodePlaceholder: "Código de autorización",
 };

@@ -1,5 +1,7 @@
 import { findClaudePath } from "@/lib/claude-path";
+import { claudeLoginSessions } from "@/lib/claude-sessions";
 import { spawn } from "child_process";
+import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +15,7 @@ export async function GET() {
     );
   }
 
+  const sessionId = randomUUID();
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -33,6 +36,7 @@ export async function GET() {
       const settle = (exitCode: number) => {
         if (settled) return;
         settled = true;
+        claudeLoginSessions.delete(sessionId);
         clearInterval(keepalive);
         clearTimeout(hardTimeout);
         if (exitCode === 0) {
@@ -44,7 +48,12 @@ export async function GET() {
       };
 
       let menuAnswered = false;
-      let loginSent = false;
+      // write() and kill() are set in either the PTY or the pipe branch
+      let writeFn: (s: string) => void = () => {};
+      let killFn: () => void = () => {};
+
+      // Register the session so submit-code route can write the OAuth code back
+      claudeLoginSessions.set(sessionId, (s: string) => writeFn(s));
 
       const onLine = (line: string) => {
         const trimmed = line.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").trim();
@@ -62,14 +71,14 @@ export async function GET() {
           }, 400);
         }
 
-        // After selecting the method, Claude shows the OAuth URL.
-        if (!urlSent) {
-          const match = trimmed.match(/https:\/\/[^\s"'<>]+/);
-          if (match) { urlSent = true; send({ type: "url", url: match[0] }); }
+        // After OAuth, Claude asks the user to paste the authorization code back.
+        // PTY output: "Pastecodehereifprompted>" (spaces stripped by terminal renderer).
+        if (/pastecode|paste.{0,5}code/i.test(trimmed)) {
+          send({ type: "needs-code", sessionId });
         }
 
         // After the user completes OAuth, Claude confirms login.
-        if (/logged.?in successfully|login complete|authenticated/i.test(trimmed) && urlSent) {
+        if (/logged.?in successfully|login complete|authenticated/i.test(trimmed)) {
           settle(0);
         }
       };
@@ -87,10 +96,6 @@ export async function GET() {
 
         text.split("\n").forEach(onLine);
       };
-
-      // write() and kill() are set in either the PTY or the pipe branch
-      let writeFn: (s: string) => void = () => {};
-      let killFn: () => void = () => {};
 
       try {
         // Dynamic require — a missing native module won't crash the handler

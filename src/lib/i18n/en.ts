@@ -505,6 +505,9 @@ export const en = {
   claudeManualFallbackDesc: "Run this command in your terminal, then type /login and press Enter:",
   claudeManualFallbackStep2: "Inside the Claude session, type",
   claudeCheckStatusBtn: "Check status",
+  claudePasteCodeTitle: "Paste authorization code",
+  claudePasteCodeDesc: "Copy the code shown in the Claude window and paste it here:",
+  claudeCodePlaceholder: "Authorization code",
 } as const;
 
 export type TranslationKey = keyof typeof en;

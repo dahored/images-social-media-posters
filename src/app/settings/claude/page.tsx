@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/context";
 
 type Status = "checking" | "logged-in" | "not-logged-in" | "unavailable";
-type LoginStep = "idle" | "connecting" | "waiting-url" | "has-url" | "done" | "error";
+type LoginStep = "idle" | "connecting" | "waiting-url" | "has-url" | "needs-code" | "submitting-code" | "done" | "error";
 
 export default function ClaudeSettingsPage() {
   const { t } = useI18n();
@@ -17,6 +17,8 @@ export default function ClaudeSettingsPage() {
   const [loginUrl, setLoginUrl] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [codeInput, setCodeInput] = useState("");
   const esRef = useRef<EventSource | null>(null);
   const popupRef = useRef<Window | null>(null);
 
@@ -43,6 +45,8 @@ export default function ClaudeSettingsPage() {
     setLoginUrl(null);
     setLoginError(null);
     setLogs([]);
+    setSessionId(null);
+    setCodeInput("");
 
     // Open a blank popup NOW (synchronously during the click event) so the
     // browser allows it. We'll navigate it to the OAuth URL once SSE delivers it.
@@ -53,11 +57,17 @@ export default function ClaudeSettingsPage() {
     esRef.current = es;
 
     es.onmessage = (e) => {
-      const data = JSON.parse(e.data) as { type: string; url?: string; text?: string; message?: string };
+      const data = JSON.parse(e.data) as {
+        type: string;
+        url?: string;
+        text?: string;
+        message?: string;
+        sessionId?: string;
+      };
 
       if (data.type === "log" && data.text) {
         setLogs((prev) => [...prev.slice(-10), data.text!]);
-        if (loginStep !== "has-url") setLoginStep("waiting-url");
+        setLoginStep((prev) => (prev === "connecting" ? "waiting-url" : prev));
       }
       if (data.type === "url" && data.url) {
         setLoginUrl(data.url);
@@ -66,6 +76,11 @@ export default function ClaudeSettingsPage() {
         if (popupRef.current && !popupRef.current.closed) {
           popupRef.current.location.href = data.url;
         }
+      }
+      if (data.type === "needs-code" && data.sessionId) {
+        setSessionId(data.sessionId);
+        setLoginStep("needs-code");
+        popupRef.current?.close();
       }
       if (data.type === "done") {
         setLoginStep("done");
@@ -81,12 +96,36 @@ export default function ClaudeSettingsPage() {
     };
 
     es.onerror = () => {
-      if (loginStep !== "done") {
-        setLoginStep("error");
-        setLoginError(t("claudeLoginConnectionFailed"));
-      }
+      setLoginStep((prev) => {
+        if (prev !== "done") {
+          setLoginError(t("claudeLoginConnectionFailed"));
+          return "error";
+        }
+        return prev;
+      });
       es.close();
     };
+  };
+
+  const submitCode = async () => {
+    if (!sessionId || !codeInput.trim()) return;
+    setLoginStep("submitting-code");
+    try {
+      const res = await fetch("/api/claude/login/submit-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, code: codeInput.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setLoginStep("error");
+        setLoginError(err.error ?? t("claudeLoginError"));
+      }
+      // On success, the SSE stream will send { type: "done" } when Claude confirms
+    } catch {
+      setLoginStep("error");
+      setLoginError(t("claudeLoginError"));
+    }
   };
 
   const cancelLogin = () => {
@@ -96,6 +135,8 @@ export default function ClaudeSettingsPage() {
     setLoginUrl(null);
     setLoginError(null);
     setLogs([]);
+    setSessionId(null);
+    setCodeInput("");
   };
 
   return (
@@ -210,6 +251,40 @@ export default function ClaudeSettingsPage() {
                       <ExternalLink className="h-3 w-3" />
                       {t("claudeOpenLoginPage")}
                     </a>
+                    <button onClick={cancelLogin} className="text-xs text-muted-foreground hover:text-foreground underline">
+                      {t("cancel")}
+                    </button>
+                  </div>
+                )}
+
+                {(loginStep === "needs-code" || loginStep === "submitting-code") && (
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-medium mb-0.5">{t("claudePasteCodeTitle")}</p>
+                      <p className="text-xs text-muted-foreground">{t("claudePasteCodeDesc")}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={codeInput}
+                        onChange={(e) => setCodeInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && submitCode()}
+                        placeholder={t("claudeCodePlaceholder")}
+                        className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-accent/50"
+                        autoFocus
+                        disabled={loginStep === "submitting-code"}
+                      />
+                      <Button
+                        onClick={submitCode}
+                        variant="accent"
+                        size="sm"
+                        disabled={!codeInput.trim() || loginStep === "submitting-code"}
+                      >
+                        {loginStep === "submitting-code"
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : t("confirm")}
+                      </Button>
+                    </div>
                     <button onClick={cancelLogin} className="text-xs text-muted-foreground hover:text-foreground underline">
                       {t("cancel")}
                     </button>
