@@ -456,8 +456,10 @@ export const es: Record<TranslationKey, string> = {
   bulkExamplePostsHeading: "Temas para posts {n}",
   bulkExamplePostsHeadingSingle: "Temas para los posts",
   bulkExamplePostItem: "Item para el post {n}",
-  bulkExampleCarouselHeading: "Tema carrusel {n}",
-  bulkExampleCarouselPoint: "Punto {n} del carrusel {c}",
+  bulkExamplePostHeading: "Post {n}",
+  bulkExamplePostBody: "Tema o contenido del post {n}",
+  bulkExampleCarouselHeading: "Carrusel {n}",
+  bulkExampleCarouselPoint: "Slide {n} del carrusel {c}",
 
   // TemplateCard
   useTemplate: "Usar plantilla",

@@ -454,8 +454,10 @@ export const en = {
   bulkExamplePostsHeading: "Post topics {n}",
   bulkExamplePostsHeadingSingle: "Post topics",
   bulkExamplePostItem: "Item for post {n}",
-  bulkExampleCarouselHeading: "Carousel topic {n}",
-  bulkExampleCarouselPoint: "Point {n} of carousel {c}",
+  bulkExamplePostHeading: "Post {n}",
+  bulkExamplePostBody: "Topic or content for post {n}",
+  bulkExampleCarouselHeading: "Carousel {n}",
+  bulkExampleCarouselPoint: "Slide {n} of carousel {c}",
 
   // TemplateCard
   useTemplate: "Use Template",

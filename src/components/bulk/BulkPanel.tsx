@@ -160,40 +160,29 @@ export function BulkPanel() {
     }
     const hasRequirements = carouselsNeeded + postsNeeded > 0;
 
-    // Build example by walking grid cells in order, but COLLAPSE consecutive post cells
-    // into a single category with N bullets (more natural to read).
+    // One section per cell, in grid order — mirrors the actual layout.
+    // Posts = heading + one content line. Carousels = heading + one bullet per slide.
     let example = "";
     if (selectedGrid && hasRequirements) {
       const exampleBlocks: string[] = [];
       let cIdx = 0;
-      let postBuffer: string[] = [];
-      let postBlockIdx = 0;
-      const flushPosts = () => {
-        if (postBuffer.length === 0) return;
-        postBlockIdx++;
-        const heading = postsNeeded > postBuffer.length
-          ? t("bulkExamplePostsHeading", { n: String(postBlockIdx) })
-          : t("bulkExamplePostsHeadingSingle");
-        exampleBlocks.push([heading, ...postBuffer.map((b) => `- ${b}`)].join("\n"));
-        postBuffer = [];
-      };
-      let pCount = 0;
+      let pIdx = 0;
       for (const item of selectedGrid.items) {
         if (!item.templateId) continue;
         const tpl = templatesById.get(item.templateId);
         if (!tpl) continue;
         if (tpl.kind === "post") {
-          pCount++;
-          postBuffer.push(t("bulkExamplePostItem", { n: String(pCount) }));
+          pIdx++;
+          exampleBlocks.push(
+            `${t("bulkExamplePostHeading", { n: String(pIdx) })}\n${t("bulkExamplePostBody", { n: String(pIdx) })}`
+          );
         } else {
-          flushPosts();
           cIdx++;
           exampleBlocks.push(
             `${t("bulkExampleCarouselHeading", { n: String(cIdx) })}\n- ${t("bulkExampleCarouselPoint", { n: "1", c: String(cIdx) })}\n- ${t("bulkExampleCarouselPoint", { n: "2", c: String(cIdx) })}\n- ${t("bulkExampleCarouselPoint", { n: "3", c: String(cIdx) })}`
           );
         }
       }
-      flushPosts();
       example = exampleBlocks.join("\n\n");
     }
 
