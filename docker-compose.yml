@@ -1,0 +1,18 @@
+services:
+  app:
+    build:
+      context: .
+      target: deps
+    ports:
+      - "40001:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./data:/app/data
+      - ./public/uploads:/app/public/uploads
+      - ${HOME}/.claude:/root/.claude
+    environment:
+      NODE_ENV: development
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
+    command: ["node_modules/.bin/next", "dev", "-p", "3000"]
+    restart: unless-stopped
