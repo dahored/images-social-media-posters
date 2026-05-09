@@ -83,8 +83,13 @@ body {
   animation: oc-overlay-out 140ms var(--ease-out-strong);
 }
 [data-oc-dialog] {
-  /* Ensure positioning transform is always applied, separate from animation transforms */
+  /* Self-contained centering: position + transform here so no Tailwind class conflicts */
+  position: fixed;
+  left: 50%;
+  top: 50%;
   transform: translate(-50%, -50%);
+  /* Reset individual translate property (Tailwind v4 uses it) to prevent double-offset */
+  translate: none;
 }
 [data-oc-dialog][data-state="open"] {
   animation: oc-dialog-in 200ms var(--ease-out-strong) both;
