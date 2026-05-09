@@ -24,6 +24,8 @@ interface ChatPanelProps {
   chatInputRef?: React.RefObject<HTMLTextAreaElement | null>;
   autoSendMessage?: string;
   onAutoSendConsumed?: () => void;
+  /** Bump the nonce to fire `silentMessage` to the AI without showing it as a user message in the transcript. */
+  silentSend?: { message: string; nonce: number };
   // Current values from the carousel (used to initialize local state)
   theme?: "dark" | "light";
   aspectRatio?: AspectRatio;
@@ -41,6 +43,7 @@ export function ChatPanel({
   chatInputRef,
   autoSendMessage,
   onAutoSendConsumed,
+  silentSend,
   theme,
   aspectRatio,
   onCommitChanges,
@@ -101,7 +104,7 @@ export function ChatPanel({
   }, [messages]);
 
   const handleSend = useCallback(
-    async (message: string) => {
+    async (message: string, options: { silent?: boolean } = {}) => {
       if (isStreaming) return;
       setError(null);
 
@@ -113,8 +116,10 @@ export function ChatPanel({
       setIsStreaming(true);
       onStreamStart?.();
 
-      const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: message };
-      setMessages((prev) => [...prev, userMsg]);
+      if (!options.silent) {
+        const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: message };
+        setMessages((prev) => [...prev, userMsg]);
+      }
 
       const assistantId = crypto.randomUUID();
       setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
@@ -211,6 +216,13 @@ export function ChatPanel({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSendMessage]);
+
+  useEffect(() => {
+    if (silentSend && silentSend.nonce > 0 && !isStreaming) {
+      handleSend(silentSend.message, { silent: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [silentSend?.nonce]);
 
   const typeWord = isPost ? t("postWord") : t("carouselWord");
 

@@ -4,12 +4,14 @@ import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, X, Send, Download } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
+import { useI18n } from "@/lib/i18n/context";
 import type { Carousel } from "@/types/carousel";
 
 interface PageProps { params: Promise<{ accountId: string }> }
 
 export default function AccountHistoryPage({ params }: PageProps) {
   const { accountId } = use(params);
+  const { t } = useI18n();
   const [carousels, setCarousels] = useState<Carousel[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterDest, setFilterDest] = useState<string>("all");
@@ -47,8 +49,10 @@ export default function AccountHistoryPage({ params }: PageProps) {
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div>
-              <h1 className="text-xl font-bold">Publish History</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">{allEntries.length} publish events</p>
+              <h1 className="text-xl font-bold">{t("publishHistoryTitle")}</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {t("publishHistoryCount", { n: String(allEntries.length) })}
+              </p>
             </div>
           </div>
 
@@ -78,7 +82,7 @@ export default function AccountHistoryPage({ params }: PageProps) {
           ) : allEntries.length === 0 ? (
             <div className="text-center py-16">
               <Send className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">No publish history yet.</p>
+              <p className="text-sm text-muted-foreground">{t("publishHistoryEmpty")}</p>
             </div>
           ) : (
             <div className="space-y-2">

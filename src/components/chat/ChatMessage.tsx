@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Bot, User } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -10,6 +11,7 @@ interface ChatMessageProps {
 }
 
 export function ChatMessage({ role, content, isStreaming }: ChatMessageProps) {
+  const { t } = useI18n();
   return (
     <div
       className={cn(
@@ -33,7 +35,7 @@ export function ChatMessage({ role, content, isStreaming }: ChatMessageProps) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-xs font-medium text-muted-foreground mb-1">
-          {role === "user" ? "You" : "Agent AI"}
+          {role === "user" ? t("you") : t("agentAI")}
         </div>
         <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
           {content}
