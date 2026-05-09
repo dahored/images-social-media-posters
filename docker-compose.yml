@@ -14,5 +14,6 @@ services:
     environment:
       NODE_ENV: development
       PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
+
     command: ["node_modules/.bin/next", "dev", "-p", "3000"]
     restart: unless-stopped

@@ -43,14 +43,31 @@ export async function GET() {
         try { controller.close(); } catch { /* already closed */ }
       };
 
+      let menuAnswered = false;
+      let loginSent = false;
+
       const onLine = (line: string) => {
         const trimmed = line.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").trim();
         if (!trimmed) return;
         send({ type: "log", text: trimmed });
+
+        // Claude shows a numbered login-method selector when not authenticated.
+        // Automatically pick option 1 (Claude subscription account).
+        if (!menuAnswered && /select login method|choose.*login|login method/i.test(trimmed)) {
+          menuAnswered = true;
+          setTimeout(() => {
+            send({ type: "log", text: "→ Selecting Claude subscription account…" });
+            writeFn("1\r");
+          }, 400);
+        }
+
+        // After selecting the method, Claude shows the OAuth URL.
         if (!urlSent) {
           const match = trimmed.match(/https:\/\/[^\s"'<>]+/);
           if (match) { urlSent = true; send({ type: "url", url: match[0] }); }
         }
+
+        // After the user completes OAuth, Claude confirms login.
         if (/logged.?in successfully|login complete|authenticated/i.test(trimmed) && urlSent) {
           settle(0);
         }
