@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2, ArrowRight, ChevronLeft, ChevronRight, Expand } from "lucide-react";
+import { Trash2, ArrowRight, ChevronLeft, ChevronRight, Expand, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SlideRenderer } from "@/components/editor/SlideRenderer";
 import { FullscreenPreview } from "@/components/editor/FullscreenPreview";
+import { useI18n } from "@/lib/i18n/context";
 import type { Template } from "@/types/template";
 
 interface TemplateCardProps {
@@ -14,6 +15,7 @@ interface TemplateCardProps {
 }
 
 export function TemplateCard({ template, onUse, onDelete }: TemplateCardProps) {
+  const { t } = useI18n();
   const [activeSlide, setActiveSlide] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
   const total = template.slides.length;
@@ -46,7 +48,7 @@ export function TemplateCard({ template, onUse, onDelete }: TemplateCardProps) {
             />
           ) : (
             <div className="h-full flex items-center justify-center text-muted-foreground/30 text-xs">
-              Empty
+              {t("empty")}
             </div>
           )}
 
@@ -64,7 +66,7 @@ export function TemplateCard({ template, onUse, onDelete }: TemplateCardProps) {
                 onClick={(e) => { e.stopPropagation(); setActiveSlide((i) => Math.max(0, i - 1)); }}
                 disabled={activeSlide === 0}
                 className="absolute left-1.5 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors disabled:opacity-0 cursor-pointer z-10"
-                aria-label="Previous slide"
+                aria-label={t("previousSlide")}
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
               </button>
@@ -72,7 +74,7 @@ export function TemplateCard({ template, onUse, onDelete }: TemplateCardProps) {
                 onClick={(e) => { e.stopPropagation(); setActiveSlide((i) => Math.min(total - 1, i + 1)); }}
                 disabled={activeSlide === total - 1}
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors disabled:opacity-0 cursor-pointer z-10"
-                aria-label="Next slide"
+                aria-label={t("nextSlide")}
               >
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
@@ -84,7 +86,7 @@ export function TemplateCard({ template, onUse, onDelete }: TemplateCardProps) {
                     key={i}
                     onClick={(e) => { e.stopPropagation(); setActiveSlide(i); }}
                     className={`h-1.5 rounded-full transition-all cursor-pointer ${i === activeSlide ? "w-3 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"}`}
-                    aria-label={`Go to slide ${i + 1}`}
+                    aria-label={t("goToSlide", { n: String(i + 1) })}
                   />
                 ))}
               </div>
@@ -94,8 +96,12 @@ export function TemplateCard({ template, onUse, onDelete }: TemplateCardProps) {
 
         <h3 className="font-semibold text-sm truncate">{template.name}</h3>
         <p className="text-xs text-muted-foreground mt-0.5 truncate">
-          {total} slide{total !== 1 ? "s" : ""} &middot; {template.aspectRatio}
+          {total} {total !== 1 ? t("slides") : t("slide")} &middot; {template.aspectRatio}
           {total > 1 && <span className="ml-1 text-[10px]">({activeSlide + 1}/{total})</span>}
+        </p>
+        <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+          <Calendar className="h-3 w-3" />
+          {new Date(template.createdAt).toLocaleDateString()}
         </p>
 
         <div className="flex items-center gap-2 mt-3">
@@ -105,7 +111,7 @@ export function TemplateCard({ template, onUse, onDelete }: TemplateCardProps) {
             className="flex-1 text-xs"
             onClick={() => onUse(template.id)}
           >
-            Use Template
+            {t("useTemplate")}
             <ArrowRight className="h-3 w-3" />
           </Button>
           <Button
@@ -113,7 +119,7 @@ export function TemplateCard({ template, onUse, onDelete }: TemplateCardProps) {
             size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-destructive"
             onClick={() => onDelete(template.id)}
-            aria-label="Delete template"
+            aria-label={t("deleteTemplate")}
           >
             <Trash2 className="h-3 w-3" />
           </Button>

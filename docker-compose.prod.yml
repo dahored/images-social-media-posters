@@ -1,0 +1,18 @@
+services:
+  app:
+    build:
+      context: .
+      target: prod
+      args:
+        - BUILD_ID=${BUILD_ID:-1}
+    ports:
+      - "40001:3000"
+    volumes:
+      - ./data:/app/data
+      - ./public/uploads:/app/public/uploads
+      - ${HOME}/.claude:/root/.claude
+    environment:
+      NODE_ENV: production
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
+
+    restart: unless-stopped

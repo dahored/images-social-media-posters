@@ -106,8 +106,11 @@ export async function POST(
       function getSlideOverridesPub(slide: Slide) {
         const slideTheme: "dark" | "light" = slide.styleOverride?.theme ?? activeThemePub;
 
-        // Per-slide logo: explicit path > theme-based variant; per-slide position/height override
-        const slideLogoPath = slide.styleOverride?.logoPath
+        // Per-slide logo: per-theme explicit path > theme-based variant; per-slide position/height override
+        const slideLogoOverridePub = slideTheme === "dark"
+          ? slide.styleOverride?.logoPath
+          : slide.styleOverride?.logoPathLight;
+        const slideLogoPath = slideLogoOverridePub
           ?? (branding
             ? (slideTheme === "dark"
               ? (branding.logoPathLight ?? branding.logoPath ?? null)

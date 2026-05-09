@@ -7,8 +7,10 @@ import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/lib/i18n/context";
 
 export default function TelegramSettingsPage() {
+  const { t } = useI18n();
   const [botToken, setBotToken] = useState("");
   const [defaultChatId, setDefaultChatId] = useState("");
   const [configured, setConfigured] = useState(false);
@@ -63,11 +65,11 @@ export default function TelegramSettingsPage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div>
-              <h1 className="text-xl font-bold">Telegram</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">Publish posts directly to Telegram</p>
+              <h1 className="text-xl font-bold">{t("telegramPageTitle")}</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">{t("telegramPageSubtitle")}</p>
             </div>
             {configured && (
-              <Badge className="ml-auto" variant="secondary">Connected</Badge>
+              <Badge className="ml-auto" variant="secondary">{t("telegramConnectedBadge")}</Badge>
             )}
           </div>
 
@@ -78,18 +80,18 @@ export default function TelegramSettingsPage() {
           ) : (
             <div className="space-y-5">
               <div className="p-4 rounded-xl bg-muted/50 border border-border text-sm text-muted-foreground">
-                <p className="font-medium text-foreground mb-1">How to get a bot token</p>
+                <p className="font-medium text-foreground mb-1">{t("telegramHowToGetToken")}</p>
                 <ol className="list-decimal list-inside space-y-1 text-xs">
-                  <li>Open Telegram and search for <span className="font-mono">@BotFather</span></li>
-                  <li>Send <span className="font-mono">/newbot</span> and follow the steps</li>
-                  <li>Copy the token BotFather gives you and paste it below</li>
-                  <li>Add the bot to your channel/group as admin</li>
+                  <li>{t("telegramStep1")} <span className="font-mono">@BotFather</span></li>
+                  <li>{t("telegramStep2")}</li>
+                  <li>{t("telegramStep3")}</li>
+                  <li>{t("telegramStep4")}</li>
                 </ol>
               </div>
 
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                  Bot Token
+                  {t("telegramBotTokenLabel")}
                 </label>
                 <div className="flex gap-2">
                   <Input
@@ -105,21 +107,21 @@ export default function TelegramSettingsPage() {
                     disabled={!botToken || testing}
                   >
                     {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                    Test
+                    {t("telegramTestBtn")}
                   </Button>
                 </div>
                 {testResult && (
                   <p className={`text-xs mt-1.5 ${testResult.ok ? "text-green-600" : "text-destructive"}`}>
                     {testResult.ok
-                      ? `Connected as @${testResult.username}`
-                      : `Error: ${testResult.error}`}
+                      ? t("telegramConnectedAs", { username: testResult.username ?? "" })
+                      : t("telegramErrorPrefix", { error: testResult.error ?? "" })}
                   </p>
                 )}
               </div>
 
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                  Default Chat ID <span className="text-[10px] opacity-60">(optional)</span>
+                  {t("telegramDefaultChatIdLabel")} <span className="text-[10px] opacity-60">{t("telegramOptionalHint")}</span>
                 </label>
                 <Input
                   value={defaultChatId}
@@ -128,13 +130,13 @@ export default function TelegramSettingsPage() {
                   className="font-mono text-xs"
                 />
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Used when the account has no specific chat ID set. Find your channel ID with @userinfobot.
+                  {t("telegramChatIdHelp")}
                 </p>
               </div>
 
               <Button onClick={handleSave} variant="accent" size="sm" disabled={saving}>
                 <Check className="h-3.5 w-3.5" />
-                {saving ? "Saving..." : "Save"}
+                {saving ? t("saving") : t("save")}
               </Button>
             </div>
           )}

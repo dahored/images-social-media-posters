@@ -8,6 +8,8 @@ import type { Brand } from "@/types/brand";
 import type { Account } from "@/types/account";
 
 const STORAGE_KEY = "activeAccountId";
+const STORAGE_DISPLAY_KEY = "activeAccountDisplay";
+const STORAGE_BRAND_KEY = "activeAccountBrandId";
 
 export function useActiveAccount() {
   const [activeAccountId, setActiveAccountIdState] = useState<string | null>(null);
@@ -41,12 +43,19 @@ export function AccountSelector({ onAccountChange }: AccountSelectorProps) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
+  // Cached from localStorage so the button shows the name before accounts API resolves
+  const [cachedDisplay, setCachedDisplay] = useState<string | null>(null);
+  const [cachedBrandId, setCachedBrandId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) setActiveAccountId(stored);
+    const display = localStorage.getItem(STORAGE_DISPLAY_KEY);
+    if (display) setCachedDisplay(display);
+    const brandId = localStorage.getItem(STORAGE_BRAND_KEY);
+    if (brandId) { setCachedBrandId(brandId); setSelectedBrandId(brandId); }
   }, []);
 
   const loadBrands = () => {
@@ -89,9 +98,10 @@ export function AccountSelector({ onAccountChange }: AccountSelectorProps) {
   const brandAccounts = accounts.filter((a) => a.brandId === selectedBrandId);
 
   const openDropdown = () => {
-    if (activeAccountId && activeAccount) {
-      setSelectedBrandId(activeAccount.brandId);
-      setStep(2);
+    if (activeAccountId) {
+      const brandId = activeAccount?.brandId ?? cachedBrandId;
+      if (brandId) setSelectedBrandId(brandId);
+      setStep(brandId ? 2 : 1);
     } else {
       setStep(1);
     }
@@ -104,7 +114,14 @@ export function AccountSelector({ onAccountChange }: AccountSelectorProps) {
   };
 
   const selectAccount = (accountId: string) => {
+    const account = accounts.find((a) => a.id === accountId);
     localStorage.setItem(STORAGE_KEY, accountId);
+    if (account) {
+      localStorage.setItem(STORAGE_DISPLAY_KEY, account.displayName ?? account.handle);
+      localStorage.setItem(STORAGE_BRAND_KEY, account.brandId);
+      setCachedDisplay(account.displayName ?? account.handle);
+      setCachedBrandId(account.brandId);
+    }
     setActiveAccountId(accountId);
     onAccountChange?.(accountId);
     window.dispatchEvent(new CustomEvent("account-changed", { detail: accountId }));
@@ -122,11 +139,11 @@ export function AccountSelector({ onAccountChange }: AccountSelectorProps) {
       >
         <User className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="font-medium max-w-28 truncate">
-          {activeAccount ? activeAccount.displayName : t("selectAccount")}
+          {activeAccount?.displayName ?? cachedDisplay ?? t("selectAccount")}
         </span>
-        {activeBrand && (
+        {(activeBrand ?? (cachedBrandId ? brands.find(b => b.id === cachedBrandId) : null)) && (
           <span className="text-xs text-muted-foreground hidden sm:inline">
-            · {activeBrand.name}
+            · {(activeBrand ?? brands.find(b => b.id === cachedBrandId))?.name}
           </span>
         )}
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />

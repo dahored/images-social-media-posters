@@ -3,6 +3,7 @@ import type { Carousel } from "@/types/carousel";
 import type { StylePreset } from "@/types/style-preset";
 import type { Network } from "@/types/network";
 import { DIMENSIONS, MAX_SLIDES } from "@/types/carousel";
+import { extractSlots } from "@/lib/slot-extractor";
 
 export function buildSystemPrompt(
   brand: BrandConfig,
@@ -56,17 +57,74 @@ export function buildSystemPrompt(
 Use professional defaults: dark text on white/light backgrounds, Inter font, clean minimal style.`;
 
   const hasRefImages = (carousel?.referenceImages?.length ?? 0) > 0;
+  // When the carousel has actual slides, dump the slot schema (role + current text)
+  // for each slide so the AI knows what content lives where without having to fetch HTML.
+  const slidesSlotContext = carousel?.slides?.length
+    ? carousel.slides
+        .map((s) => {
+          const { slots } = extractSlots(s.html);
+          if (slots.length === 0) {
+            return `  - Slide ${s.order + 1} (ID: ${s.id})${s.notes ? ` — ${s.notes}` : ""}\n      (no semantic slots detected)`;
+          }
+          const lines = slots
+            .map((slot) => `      • [${slot.role}${slot.hasAccent ? "+accent" : ""}] "${slot.text.slice(0, 120)}"`)
+            .join("\n");
+          return `  - Slide ${s.order + 1} (ID: ${s.id})${s.notes ? ` — ${s.notes}` : ""}\n${lines}`;
+        })
+        .join("\n")
+    : "  (no slides yet)";
+
+  const lockedBlock = carousel?.templateLocked
+    ? `
+
+## 🔒 TEMPLATE LOCKED MODE — SLOT SCHEMA ONLY
+
+This carousel was created from a template (id: ${carousel.templateId ?? "?"}). The user has NOT unlocked it.
+
+**The lock ONLY protects the slot schema**: same role-classed elements (\`slide-title\`, \`slide-subtitle\`, \`slide-body\`, \`slide-quote\`, \`slide-list-item\`, \`slide-section-title\`, \`slide-section-body\`, \`slide-cta\`) in the same count and same order. Nothing else is restricted.
+
+## ⚠️ CONTENT REPLACEMENT RULE — READ THIS FIRST
+
+The text shown in the slot schema above is the **template's original example content**. It is a structural placeholder — it shows you WHAT TYPE of content goes in each slot, NOT what the content should say.
+
+**When the user gives you a topic or asks you to create content:**
+- REPLACE ALL slot text 100% with fresh content matching the user's brief
+- Do NOT imitate, adapt, or theme-match the original text in any way
+- Pretend the current slot text doesn't exist — use only the slot ROLE (title, body, cta…) as a guide for what type of content to write there
+- The STRUCTURE is what you preserve (slot roles, count, order) — the text gets completely new content every time
+
+**FREELY ALLOWED — no restriction, do as the user asks**:
+- Text content (any text node)
+- Colors (any \`color\`, \`background\`, gradient, rgba alpha)
+- Fonts (any \`font-family\`, \`font-size\`, \`font-weight\`, \`letter-spacing\`)
+- Decorative wrappers, glows, dividers, gradients, pseudo-overlays
+- Layout details: padding, margin, gap, alignment, flex/grid changes
+- Add or remove **non-role-classed** elements (decorative divs, spans, etc.)
+
+**ONLY FORBIDDEN — server-side validator (HTTP 422) rejects these**:
+- Add, remove, or reorder elements that carry a \`slide-*\` role class
+- Change a role class on an existing element (\`slide-title\` → \`slide-body\`, etc.)
+- Change the tag type of a role-classed element
+
+**To update a slide**: PUT /api/carousels/${carousel.id}/slides/{SLIDE_ID} with body \`{ "html": "..." }\`. The slot schema shows which role-classed elements must remain — preserve THOSE. Anything else (decoration, layout, colors, fonts, text) is yours to change.
+
+If the user asks for a full redesign that needs adding/removing role-classed slots (e.g., "add a list", "remove the CTA"), reply that the template is locked and they should click the lock icon in the toolbar. Otherwise (colors, fonts, text, decoration), proceed without warnings.
+`
+    : "";
+
   const carouselSection = carousel
     ? `## Current carousel
 - ID: ${carousel.id}
 - Name: "${carousel.name}"
 - Aspect ratio: ${carousel.aspectRatio} (${DIMENSIONS[carousel.aspectRatio].width}x${DIMENSIONS[carousel.aspectRatio].height}px)
-- Slides: ${carousel.slides.length}/${MAX_SLIDES}
-${carousel.slides.length > 0 ? carousel.slides.map((s) => `  - Slide ${s.order + 1} (ID: ${s.id})${s.notes ? ` — ${s.notes}` : ""}`).join("\n") : "  (no slides yet)"}
+- Slides: ${carousel.slides.length}/${MAX_SLIDES}${carousel.templateLocked ? "\n- 🔒 Template locked: structure must be preserved" : ""}
+
+### Slide content (slot schema)
+${slidesSlotContext}
 ${hasRefImages ? `
 ## ⚠️ MANDATORY FIRST STEP — Reference images present
 BEFORE creating any slides, use the Read tool to view each image below. Study ONLY layout composition, element placement, spacing, and grid structure. DO NOT copy colors, fonts, or visual style — apply brand identity on top of the extracted structure.
-${carousel.referenceImages.map((r) => `- Read: ${r.absPath}  (display name: "${r.name}")`).join("\n")}` : ""}`
+${carousel.referenceImages.map((r) => `- Read: ${r.absPath}  (display name: "${r.name}")`).join("\n")}` : ""}${lockedBlock}`
     : "";
 
   const networkSection = network
@@ -216,8 +274,9 @@ Each slide is BODY-LEVEL HTML only. No <!DOCTYPE>, <html>, <head>, or <body> tag
    - Accent / CTA / highlight elements → **${activePalette.accent}**
    - Secondary decorative tones → **${activePalette.secondary}**
    - Cards / panels / surface backgrounds → **${activePalette.surface}**
-   - Heading font: **"${brand.fonts.heading}"** — write exactly this string in font-family inline styles for headings; add class="slide-title" to EVERY heading/title element
-   - Body font: **"${brand.fonts.body}"** — write exactly this string in font-family inline styles for body text; add class="slide-body" to EVERY body/paragraph/description element
+   - Heading font: **"${brand.fonts.heading}"** — write exactly this string in font-family inline styles for heading-role elements
+   - Body font: **"${brand.fonts.body}"** — write exactly this string in font-family inline styles for body-role elements
+   - Every text/CTA element MUST carry a semantic role class — see "Semantic role classes" section below for the full list and mapping
    ⚠️ CRITICAL: "${activePalette.primary}" is the BACKGROUND — "${activePalette.background}" is the TEXT COLOR. Never invert this. NEVER use hex colors not listed above.
 5. **SAFE ZONE + LOGO CLEARANCE** — padding on root div: ${Math.round(dimensions.width * 0.1)}px sides, ${Math.round(dimensions.height * 0.1)}px top, **${logoTopPx}px bottom** (= UI overlay zone + brand logo strip above it). NEVER place any content below ${logoTopPx}px from the bottom — it will be hidden behind the logo or the Instagram UI.
    ⚠️ **NO SEPARATORS IN LOGO ZONE**: Do NOT add any decorative horizontal line, <hr>, border, separator div, or any element with height:1px/height:2px/height:3px spanning the full width near the bottom of the slide. The gap between content and logo must be achieved with empty space only — no visual dividers. Any such element will appear awkwardly above the logo overlay.
@@ -225,16 +284,63 @@ Each slide is BODY-LEVEL HTML only. No <!DOCTYPE>, <html>, <head>, or <body> tag
 7. Images: /uploads/{filename} paths only
 8. NO JavaScript (sandbox blocks it)
 9. Use flexbox/grid for layout; position:absolute is fine for decorative overlays
+10. **STACKING / Z-INDEX — CRITICAL**: Decorative absolutely-positioned elements (circles, glows, gradient overlays, dots, grids, geometric shapes, watermarks) MUST sit BEHIND content. Two ways to ensure this — apply BOTH:
+   - **DOM order**: place ALL decorative absolute-positioned elements as the FIRST children of the root div, BEFORE any content (text, cards, lists). Content comes AFTER decorations.
+   - **Explicit z-index**: every text-containing or content element (anything with a \`slide-*\` role class, or its wrapping container) gets \`position: relative; z-index: 1\` minimum. Decorative shapes get \`z-index: 0\` (or omit it — default 0 is fine if DOM order is correct).
+   - Cards/panels (with \`slide-section-*\` content) MUST have \`position: relative; z-index: 1\` so their entire bounding box (including the surface background) sits above decorations.
+   - **Test mentally**: if a decorative shape extends into the area where text sits, that text would be obscured unless the text has a higher z-index. Don't rely on luck — ALWAYS layer content above decorations.
 
 ## Design intelligence
 
-### Typography — CRITICAL: use role classes on every text element
-- **Heading font "${brand.fonts.heading}"**: write exactly this font-family in heading inline styles; add class="slide-title" on ALL titles, hook text, display numbers, CTAs, h1/h2 elements
-- **Body font "${brand.fonts.body}"**: write exactly this font-family in body inline styles; add class="slide-body" on ALL paragraphs, bullet points, descriptions, labels, captions, sub-headings
-- **Accent color text**: add class="slide-accent" to EVERY element (span, div, h1, etc.) whose text color is the accent **${activePalette.accent}** — this enables real-time accent color control in the editor
-- These classes enable independent style control per role — NEVER omit them
+### Semantic role classes — REQUIRED on every text/CTA element
+
+Every text or CTA element must carry exactly ONE base role class. The system uses these classes for per-role font control, accent overrides, and bulk-content distribution. Slides that omit them lose those capabilities.
+
+| Class | Use for | Font role |
+|-------|---------|-----------|
+| \`slide-title\` | Main slide heading, hook, hero display, top-level headline | heading |
+| \`slide-subtitle\` | Secondary heading, kicker line above/below title, tag, label-eyebrow | heading or body |
+| \`slide-body\` | Paragraph, description, supporting prose | body |
+| \`slide-quote\` | Standalone quoted phrase, pull quote, slogan, "...""..." citations | heading (italic ok) |
+| \`slide-list-item\` | Each bullet/numbered item in a list (\`<li>\` or \`<div>\` items in a list block) | body |
+| \`slide-section-title\` | Title inside a card/box/sub-block within the slide | heading |
+| \`slide-section-body\` | Body text inside a card/box/sub-block | body |
+| \`slide-cta\` | Call-to-action text — button label, "Swipe →", "Comenta GG", urgency line | heading |
+| \`slide-accent\` | Add IN ADDITION to one of the above when the element's text color is the accent (**${activePalette.accent}**) | (any) |
+
+**Rules**:
+- ONE base role per element. Plain decorative wrappers (no text) don't need a role class.
+- Combine with \`slide-accent\` when the text uses the accent color: \`<span class="slide-title slide-accent" style="color:${activePalette.accent}">build</span>\`
+- Use \`slide-section-*\` only when content sits inside a visually distinct card/panel (background, border, padding). Otherwise use the top-level role.
+- Font: \`slide-title\`, \`slide-quote\`, \`slide-section-title\`, \`slide-cta\` → \`"${brand.fonts.heading}"\`. \`slide-body\`, \`slide-list-item\`, \`slide-section-body\` → \`"${brand.fonts.body}"\`. \`slide-subtitle\` defaults to heading; use body for kickers under hero text.
+
+**Quick examples**:
+\`\`\`html
+<!-- Quote post -->
+<p class="slide-title" style="font-family:'${brand.fonts.heading}'">El amor no se busca, <span class="slide-title slide-accent" style="color:${activePalette.accent}">se construye</span>.</p>
+<p class="slide-body" style="font-family:'${brand.fonts.body}'">Cada gesto es un ladrillo.</p>
+
+<!-- List slide -->
+<h2 class="slide-section-title">3 reglas:</h2>
+<ul>
+  <li class="slide-list-item">Respeta tus tiempos</li>
+  <li class="slide-list-item">Cierra a las 11</li>
+  <li class="slide-list-item">Habla con tu equipo</li>
+</ul>
+
+<!-- CTA slide -->
+<p class="slide-cta">Comenta <span class="slide-cta slide-accent">GG</span> si te pasó.</p>
+
+<!-- Card/panel block -->
+<div style="background:${activePalette.surface};padding:32px;border-radius:16px">
+  <h3 class="slide-section-title">Setup gamer</h3>
+  <p class="slide-section-body">Lo que de verdad necesitas para empezar.</p>
+</div>
+\`\`\`
+
+### Typography sizing
 - Max 2 font families per carousel
-- Line height: 1.2 for headings, 1.5 for body
+- Line height: 1.2 for headings (\`slide-title\`, \`slide-quote\`, \`slide-section-title\`, \`slide-cta\`), 1.5 for body (\`slide-body\`, \`slide-list-item\`, \`slide-section-body\`)
 
 ### Content capacity — plan BEFORE writing HTML
 Usable canvas after safe-zone padding + logo clearance: **${contentW}px wide × ${contentH}px tall**

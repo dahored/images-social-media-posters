@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.gitignore
+data
+public/uploads
+*.md
+.env*
+tsconfig.tsbuildinfo
+docs

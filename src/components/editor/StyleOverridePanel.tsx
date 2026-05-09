@@ -5,6 +5,7 @@ import { X, Moon, Sun, AlignLeft, AlignCenter, AlignRight } from "lucide-react";
 import { ColorPicker } from "@/components/brand/ColorPicker";
 import { FontSelector, loadGoogleFont } from "@/components/brand/FontSelector";
 import { detectSlideRootBackground } from "@/lib/slide-html";
+import { useI18n } from "@/lib/i18n/context";
 import type { CarouselBrandingOverride, Slide, SlideColorSet } from "@/types/carousel";
 import type { LogoPosition } from "@/types/brand";
 
@@ -21,14 +22,6 @@ const DEFAULT_LIGHT: ColorSet = {
   primary: "#ffffff", secondary: "#f0f0f0", accent: "#7f22fe",
   background: "#1a1a2e", surface: "#f8f8f8",
 };
-
-const COLOR_FIELDS: Array<{ key: keyof ColorSet; label: string }> = [
-  { key: "primary",    label: "Fondo del slide" },
-  { key: "secondary",  label: "Tono secundario" },
-  { key: "accent",     label: "Acento / Énfasis" },
-  { key: "background", label: "Color de texto" },
-  { key: "surface",    label: "Panel / Superficie" },
-];
 
 interface StyleOverridePanelProps {
   brandColors: ColorSet;
@@ -54,6 +47,7 @@ export function StyleOverridePanel({
   initialSlideTheme,
   brandLogos,
 }: StyleOverridePanelProps) {
+  const { t } = useI18n();
   const [themeTab, setThemeTab] = useState<"dark" | "light">(initialSlideTheme ?? "dark");
 
   useEffect(() => { setThemeTab(initialSlideTheme ?? "dark"); }, [initialSlideTheme]);
@@ -97,7 +91,11 @@ export function StyleOverridePanel({
 
   const handleSlideLogoChange = (path: string | null) => {
     if (!activeSlide || !onSlideOverrideChange) return;
-    onSlideOverrideChange(activeSlide.id, { ...slideOverride, logoPath: path ?? undefined });
+    if (themeTab === "dark") {
+      onSlideOverrideChange(activeSlide.id, { ...slideOverride, logoPath: path ?? undefined });
+    } else {
+      onSlideOverrideChange(activeSlide.id, { ...slideOverride, logoPathLight: path ?? undefined });
+    }
   };
 
   const handleSlideCustomBgChange = (value: string) => {
@@ -130,18 +128,26 @@ export function StyleOverridePanel({
   const resolveSlideColor = (key: keyof ColorSet): string =>
     slideActiveOverride?.[key] ?? carouselActiveOverride?.[key] ?? activeBase[key];
 
+  const colorFieldKeys: Array<{ key: keyof ColorSet; translationKey: "slideColorPrimary" | "slideColorSecondary" | "slideColorAccent" | "slideColorBackground" | "slideColorSurface" }> = [
+    { key: "primary",    translationKey: "slideColorPrimary" },
+    { key: "secondary",  translationKey: "slideColorSecondary" },
+    { key: "accent",     translationKey: "slideColorAccent" },
+    { key: "background", translationKey: "slideColorBackground" },
+    { key: "surface",    translationKey: "slideColorSurface" },
+  ];
+
   return (
     <div className="w-72 border-l border-border shrink-0 flex flex-col overflow-hidden bg-background">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-        <span className="text-sm font-semibold">Estilo del slide</span>
+        <span className="text-sm font-semibold">{t("slideStyle")}</span>
         <div className="flex items-center gap-2">
           {activeSlide && onSlideOverrideChange && (
             <button
               onClick={handleResetSlide}
               className="text-xs text-muted-foreground hover:text-accent transition-colors cursor-pointer"
             >
-              Restaurar
+              {t("slideStyleRestore")}
             </button>
           )}
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
@@ -152,14 +158,14 @@ export function StyleOverridePanel({
 
       {!activeSlide ? (
         <div className="flex-1 flex items-center justify-center p-6 text-center">
-          <p className="text-sm text-muted-foreground">Selecciona un slide para editar su estilo.</p>
+          <p className="text-sm text-muted-foreground">{t("slideSelectPrompt")}</p>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-5">
           {/* Colors */}
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Colores</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("colors")}</h3>
               <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-md ml-auto">
                 <button
                   onClick={() => handleThemeChange("dark")}
@@ -168,7 +174,7 @@ export function StyleOverridePanel({
                   }`}
                 >
                   <Moon className="h-2.5 w-2.5" />
-                  Oscuro
+                  {t("slideThemeDark")}
                 </button>
                 <button
                   onClick={() => handleThemeChange("light")}
@@ -177,15 +183,15 @@ export function StyleOverridePanel({
                   }`}
                 >
                   <Sun className="h-2.5 w-2.5" />
-                  Claro
+                  {t("slideThemeLight")}
                 </button>
               </div>
             </div>
             <div className="flex flex-col gap-3">
-              {COLOR_FIELDS.map(({ key, label }) => (
+              {colorFieldKeys.map(({ key, translationKey }) => (
                 <ColorPicker
                   key={`slide-${themeTab}-${key}`}
-                  label={label}
+                  label={t(translationKey)}
                   value={resolveSlideColor(key)}
                   onChange={(v) => handleSlideColorChange(key, v)}
                 />
@@ -195,18 +201,18 @@ export function StyleOverridePanel({
 
           {/* Fonts */}
           <section>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Fuentes</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{t("fonts")}</h3>
             <div className="flex flex-col gap-4">
-              <FontSelector label="Título" value={slideEffectiveHeading} onChange={(v) => handleSlideFontChange("heading", v)} />
-              <FontSelector label="Cuerpo" value={slideEffectiveBody}    onChange={(v) => handleSlideFontChange("body",    v)} />
+              <FontSelector label={t("slideFontHeading")} value={slideEffectiveHeading} onChange={(v) => handleSlideFontChange("heading", v)} />
+              <FontSelector label={t("slideFontBody")}    value={slideEffectiveBody}    onChange={(v) => handleSlideFontChange("body",    v)} />
             </div>
           </section>
 
           {/* Custom background */}
           <section>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Fondo personalizado</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{t("customBackground")}</h3>
             <ColorPicker
-              label="Color de fondo"
+              label={t("slideCustomBgColor")}
               value={slideOverride.customBackground ?? detectedBg ?? "#000000"}
               onChange={handleSlideCustomBgChange}
             />
@@ -215,22 +221,23 @@ export function StyleOverridePanel({
                 onClick={handleClearCustomBg}
                 className="mt-2 text-xs text-muted-foreground hover:text-accent transition-colors cursor-pointer"
               >
-                Restaurar fondo original
+                {t("slideRestoreOriginalBg")}
               </button>
             )}
           </section>
 
           {/* Logo */}
           <section>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Logo</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{t("logoSection")}</h3>
 
             {/* Logo variant (only when multiple options exist) */}
             {brandLogos && brandLogos.length > 1 && (
               <div className="mb-3">
-                <label className="text-xs text-muted-foreground mb-1.5 block">Variante</label>
+                <label className="text-xs text-muted-foreground mb-1.5 block">{t("variant")}</label>
                 <div className="flex flex-wrap gap-2">
                   {brandLogos.map(({ path, label }) => {
-                    const isSelected = slideOverride.logoPath === path;
+                    const currentLogoPath = themeTab === "dark" ? slideOverride.logoPath : slideOverride.logoPathLight;
+                    const isSelected = currentLogoPath === path;
                     return (
                       <button
                         key={path}
@@ -250,12 +257,12 @@ export function StyleOverridePanel({
                     );
                   })}
                 </div>
-                {slideOverride.logoPath && (
+                {(themeTab === "dark" ? slideOverride.logoPath : slideOverride.logoPathLight) && (
                   <button
                     onClick={() => handleSlideLogoChange(null)}
                     className="mt-2 text-xs text-muted-foreground hover:text-accent transition-colors cursor-pointer"
                   >
-                    Restaurar automático
+                    {t("slideRestoreAutoLogo")}
                   </button>
                 )}
               </div>
@@ -264,7 +271,7 @@ export function StyleOverridePanel({
             {/* Position and height */}
             <div className="flex items-end gap-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">Posición</label>
+                <label className="text-xs text-muted-foreground mb-1.5 block">{t("position")}</label>
                 <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-md">
                   {LOGO_POSITIONS.map(({ value, Icon }) => (
                     <button
@@ -286,7 +293,7 @@ export function StyleOverridePanel({
                 </div>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">Altura (px)</label>
+                <label className="text-xs text-muted-foreground mb-1.5 block">{t("logoHeight")}</label>
                 <input
                   type="number"
                   min={24}

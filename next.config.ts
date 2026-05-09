@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["sharp", "archiver", "puppeteer"],
+  async redirects() {
+    return [
+      { source: "/", destination: "/content/my-content", permanent: false },
+    ];
+  },
   async headers() {
     const isDev = process.env.NODE_ENV !== "production";
     return [

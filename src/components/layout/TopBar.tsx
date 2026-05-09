@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Settings, Layers, Building2, Globe, Send } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { ArrowLeft, Settings, Layers, Building2, Globe, Send, CalendarDays, LayoutDashboard, BotMessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AccountSelector } from "@/components/brand/AccountSelector";
 import { useI18n, type Locale } from "@/lib/i18n/context";
@@ -83,6 +84,7 @@ function SettingsDropdown() {
     { href: "/brands", icon: Building2, label: t("brands") },
     { href: "/settings/networks", icon: Globe, label: t("networks") },
     { href: "/settings/telegram", icon: Send, label: t("telegram") },
+    { href: "/settings/claude", icon: BotMessageSquare, label: "Claude" },
   ];
 
   return (
@@ -112,6 +114,34 @@ function SettingsDropdown() {
         </div>
       )}
     </div>
+  );
+}
+
+function MainNav() {
+  const pathname = usePathname();
+  const { t } = useI18n();
+  const isCalendar = pathname?.startsWith("/calendar");
+  const navItems = [
+    { href: "/content/my-content", label: t("postsNav"), icon: LayoutDashboard, active: !isCalendar },
+    { href: "/calendar", label: t("calendarNav"), icon: CalendarDays, active: isCalendar },
+  ];
+  return (
+    <nav className="flex items-center gap-0.5">
+      {navItems.map(({ href, label, icon: Icon, active }) => (
+        <Link
+          key={href}
+          href={href}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            active
+              ? "bg-accent/10 text-accent"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <Icon className="h-3.5 w-3.5" />
+          {label}
+        </Link>
+      ))}
+    </nav>
   );
 }
 
@@ -193,6 +223,7 @@ export function TopBar({
           )
         )}
       </div>
+      {!title && <MainNav />}
       <div className="flex-1" />
       <AccountSelector />
       <LanguageToggle />

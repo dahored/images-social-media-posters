@@ -6,6 +6,7 @@ import { Layers, X } from "lucide-react";
 import { Button } from "./button";
 import { Input } from "./input";
 import { AspectRatioSelector } from "@/components/editor/AspectRatioSelector";
+import { useI18n } from "@/lib/i18n/context";
 import type { AspectRatio } from "@/types/carousel";
 import type { Network, NetworkFormat, NetworkRatio } from "@/types/network";
 
@@ -20,6 +21,7 @@ export function CreateCarouselDialog({
   onOpenChange,
   onCreate,
 }: CreateCarouselDialogProps) {
+  const { t } = useI18n();
   const [name, setName] = useState("");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("4:5");
   const [networks, setNetworks] = useState<Network[]>([]);
@@ -68,13 +70,13 @@ export function CreateCarouselDialog({
                 <Layers className="h-4 w-4 text-accent" />
               </div>
               <Dialog.Title className="text-base font-semibold">
-                New Carousel
+                {t("newCarouselDialogTitle")}
               </Dialog.Title>
             </div>
             <Dialog.Close asChild>
               <button
                 className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
-                aria-label="Close"
+                aria-label={t("close")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -84,12 +86,12 @@ export function CreateCarouselDialog({
           <div className="space-y-4">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                Carousel Name
+                {t("carouselNameLabel")}
               </label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., 5 Tips for Remote Work"
+                placeholder={t("carouselNamePlaceholder")}
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleCreate();
@@ -100,7 +102,7 @@ export function CreateCarouselDialog({
             {networks.length > 0 && (
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                  Network
+                  {t("networkLabel")}
                 </label>
                 <div className="flex flex-wrap gap-1.5">
                   {networks.map((n) => (
@@ -123,7 +125,7 @@ export function CreateCarouselDialog({
             {formats.length > 1 && (
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                  Format
+                  {t("formatLabel")}
                 </label>
                 <div className="flex flex-wrap gap-1.5">
                   {formats.map((f) => (
@@ -146,7 +148,7 @@ export function CreateCarouselDialog({
             {selectedFormat && selectedFormat.ratios.length > 1 ? (
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                  Ratio
+                  {t("ratioLabel")}
                 </label>
                 <div className="flex flex-wrap gap-1.5">
                   {selectedFormat.ratios.map((r: NetworkRatio) => {
@@ -174,7 +176,7 @@ export function CreateCarouselDialog({
             ) : (
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                  Aspect Ratio
+                  {t("aspectRatio")}
                 </label>
                 <AspectRatioSelector
                   value={aspectRatio}
@@ -187,7 +189,7 @@ export function CreateCarouselDialog({
           <div className="flex justify-end gap-2 mt-6">
             <Dialog.Close asChild>
               <Button variant="outline" size="sm">
-                Cancel
+                {t("cancel")}
               </Button>
             </Dialog.Close>
             <Button
@@ -196,7 +198,7 @@ export function CreateCarouselDialog({
               onClick={handleCreate}
               disabled={!name.trim()}
             >
-              Create
+              {t("create")}
             </Button>
           </div>
         </Dialog.Content>

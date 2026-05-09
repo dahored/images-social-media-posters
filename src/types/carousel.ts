@@ -53,7 +53,8 @@ export interface Slide {
     colors?: SlideColorSet;
     colorsLight?: SlideColorSet;
     fonts?: { heading?: string; body?: string };
-    logoPath?: string;
+    logoPath?: string;        // override for dark theme
+    logoPathLight?: string;   // override for light theme
     logoPosition?: LogoPosition;
     logoHeight?: number;
     customBackground?: string;
@@ -84,6 +85,14 @@ export interface Carousel {
   chatSessionId: string | null;
   isTemplate: boolean;
   tags: string[];
+  /** Source template id when this carousel was created from one. */
+  templateId?: string;
+  /** When true, chat edits are routed through the slot-fill flow to preserve HTML structure. */
+  templateLocked?: boolean;
+  /** Grid that originated this carousel via the Masivo (bulk) flow. */
+  sourceGridId?: string;
+  /** Planned publication date/time (ISO 8601). Time portion is optional. */
+  scheduledAt?: string;
   createdAt: string;
   updatedAt: string;
 }

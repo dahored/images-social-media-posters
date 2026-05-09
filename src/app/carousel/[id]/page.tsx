@@ -3,11 +3,12 @@
 import { useEffect, useState, useCallback, useRef, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Trash2, Grid3X3, Bookmark, Maximize2, X, Settings2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Trash2, Grid3X3, Bookmark, Maximize2, X, Settings2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Lock, LockOpen } from "lucide-react";
 import { PublishButton } from "@/components/editor/PublishButton";
 import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import * as Dialog from "@radix-ui/react-dialog";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { CarouselPreview } from "@/components/editor/CarouselPreview";
 import { SlideFilmstrip } from "@/components/editor/SlideFilmstrip";
@@ -18,6 +19,7 @@ import { FullscreenPreview } from "@/components/editor/FullscreenPreview";
 import { StyleOverridePanel } from "@/components/editor/StyleOverridePanel";
 import { useI18n } from "@/lib/i18n/context";
 import type { Carousel, AspectRatio, CarouselBrandingOverride, Slide, SlideColorSet } from "@/types/carousel";
+import { detectSlideRootBackground } from "@/lib/slide-html";
 import type { LogoConfig, ColorSubstitution, FontSubstitution } from "@/lib/slide-html";
 import type { EffectiveBranding } from "@/types/account";
 import type { BrandColors } from "@/types/brand";
@@ -51,9 +53,38 @@ export default function CarouselEditorPage({ params }: PageProps) {
   };
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
+  const [templateChoiceOpen, setTemplateChoiceOpen] = useState(false);
+
+  const saveAsNewTemplate = async () => {
+    const res = await fetch("/api/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ carouselId: carousel?.id }),
+    });
+    if (res.ok) {
+      setTemplateSaved(true);
+      setTimeout(() => setTemplateSaved(false), 2000);
+    }
+    setTemplateChoiceOpen(false);
+  };
+
+  const overwriteOriginalTemplate = async () => {
+    if (!carousel?.templateId) return;
+    const res = await fetch(`/api/templates/${carousel.templateId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ carouselId: carousel.id }),
+    });
+    if (res.ok) {
+      setTemplateSaved(true);
+      setTimeout(() => setTemplateSaved(false), 2000);
+    }
+    setTemplateChoiceOpen(false);
+  };
   const [ratioChangeBanner, setRatioChangeBanner] = useState<{ from: AspectRatio; to: AspectRatio } | null>(null);
   const [slidesDesignedForRatio, setSlidesDesignedForRatio] = useState<AspectRatio | null>(null);
   const [autoSendMessage, setAutoSendMessage] = useState<string | undefined>();
+  const [silentSendNonce, setSilentSendNonce] = useState(0);
   const [contentSidebarOpen, setContentSidebarOpen] = useState(() =>
     typeof window !== "undefined" ? localStorage.getItem("cs-info-open") !== "0" : true
   );
@@ -315,6 +346,18 @@ export default function CarouselEditorPage({ params }: PageProps) {
   const brandColors = effectiveBranding?.colors;           // dark — what the AI generated with
   const brandColorsLight = effectiveBranding?.colorsLight; // light — desired when theme is "light"
 
+  // Detect which palette a slide's HTML was authored with by inspecting its root background.
+  // Falls back to dark when ambiguous. Used to pick the correct `from` for color substitution
+  // so a slide saved with light colors can still flip to dark and vice versa.
+  const detectHtmlBase = (html: string | undefined) => {
+    if (!html || !brandColors) return brandColors;
+    const bg = detectSlideRootBackground(html)?.toLowerCase();
+    if (bg && brandColorsLight?.primary && bg === brandColorsLight.primary.toLowerCase()) {
+      return brandColorsLight;
+    }
+    return brandColors;
+  };
+
   // Base colors for the current theme: dark brand OR light brand
   const brandBaseForTheme = activeTheme === "dark"
     ? brandColors
@@ -337,9 +380,10 @@ export default function CarouselEditorPage({ params }: PageProps) {
         : activeSlideData.styleOverride?.colorsLight)
     : undefined;
 
-  const activeSlideColorSub: ColorSubstitution | undefined = brandColors && previewBrandBase
+  const activeHtmlBase = detectHtmlBase(activeSlideData?.html);
+  const activeSlideColorSub: ColorSubstitution | undefined = activeHtmlBase && previewBrandBase
     ? {
-        from: { ...(brandBaseForTheme ?? brandColors) },
+        from: { ...activeHtmlBase },
         to: mergeSlideColors(previewBrandBase, previewCarouselOverride, previewSlideOverrideColors),
       }
     : undefined;
@@ -350,12 +394,15 @@ export default function CarouselEditorPage({ params }: PageProps) {
     previewCarouselOverride?.accent ??
     previewBrandBase?.accent;
 
-  // Active slide logo: explicit override > theme-based variant > carousel default
+  // Active slide logo: per-theme explicit override > theme-based auto variant > carousel default
   const activeSlideTheme: "dark" | "light" = activeSlideData?.styleOverride?.theme ?? activeTheme;
   const activeSlideAutoLogoPath = activeSlideTheme === "dark"
     ? (effectiveBranding?.logoPathLight ?? effectiveBranding?.logoPath ?? null)
     : (effectiveBranding?.logoPathDark  ?? effectiveBranding?.logoPath ?? null);
-  const activeSlideLogoPath = activeSlideData?.styleOverride?.logoPath ?? activeSlideAutoLogoPath;
+  const activeSlideLogoOverride = activeSlideTheme === "dark"
+    ? activeSlideData?.styleOverride?.logoPath
+    : activeSlideData?.styleOverride?.logoPathLight;
+  const activeSlideLogoPath = activeSlideLogoOverride ?? activeSlideAutoLogoPath;
   const activeSlideLogoPosition = activeSlideData?.styleOverride?.logoPosition ?? logoPosition;
   const activeSlideLogoHeight   = activeSlideData?.styleOverride?.logoHeight   ?? logoHeight;
   const activeLogoConfig: LogoConfig | undefined = activeSlideLogoPath
@@ -401,9 +448,10 @@ export default function CarouselEditorPage({ params }: PageProps) {
           const mergedForSlide = baseForSlide
             ? mergeSlideColors(baseForSlide, carOvForSlide, sColorOv)
             : undefined;
+          const sHtmlBase = detectHtmlBase(s.html);
           return [s.id, {
-            colorSubstitution: baseForSlide ? {
-              from: { ...(brandBaseForTheme ?? brandColors) },
+            colorSubstitution: baseForSlide && sHtmlBase ? {
+              from: { ...sHtmlBase },
               to: mergedForSlide!,
             } : undefined,
             fontSubstitution: {
@@ -426,7 +474,10 @@ export default function CarouselEditorPage({ params }: PageProps) {
       const themeBasedPath = slideTheme === "dark"
         ? (effectiveBranding?.logoPathLight ?? effectiveBranding?.logoPath ?? null)
         : (effectiveBranding?.logoPathDark  ?? effectiveBranding?.logoPath ?? null);
-      const sLogoPath = s.styleOverride?.logoPath ?? themeBasedPath;
+      const sLogoOverride = slideTheme === "dark"
+        ? s.styleOverride?.logoPath
+        : s.styleOverride?.logoPathLight;
+      const sLogoPath = sLogoOverride ?? themeBasedPath;
       if (!sLogoPath) return [];
       // Skip if identical to the carousel-default logoConfig (SlideFilmstrip will use the default)
       if (
@@ -482,6 +533,29 @@ export default function CarouselEditorPage({ params }: PageProps) {
         onConfirm={confirmState.onConfirm}
       />
 
+      <Dialog.Root open={templateChoiceOpen} onOpenChange={setTemplateChoiceOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay data-oc-overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
+          <Dialog.Content data-oc-dialog className="fixed left-1/2 top-1/2 z-50 w-full max-w-md rounded-xl bg-surface border border-border p-6 shadow-2xl">
+            <Dialog.Title className="text-sm font-semibold mb-1">{t("templateSaveTitle")}</Dialog.Title>
+            <Dialog.Description className="text-xs text-muted-foreground mb-5">
+              {t("templateSaveDesc")}
+            </Dialog.Description>
+            <div className="flex flex-col gap-2">
+              <Button variant="accent" size="sm" onClick={overwriteOriginalTemplate}>
+                {t("templateOverwrite")}
+              </Button>
+              <Button variant="outline" size="sm" onClick={saveAsNewTemplate}>
+                {t("templateSaveNew")}
+              </Button>
+              <Dialog.Close asChild>
+                <Button variant="ghost" size="sm">{t("cancel")}</Button>
+              </Dialog.Close>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {chatOpen && (
           <div className="oc-fade w-80 border-r border-border shrink-0 flex flex-col bg-surface">
@@ -495,6 +569,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
               chatInputRef={chatInputRef}
               autoSendMessage={autoSendMessage}
               onAutoSendConsumed={() => setAutoSendMessage(undefined)}
+              silentSend={{ message: "Regenera este slide manteniendo estilo, paleta de marca y estructura semántica (mismas role classes). Genera una variación con un fraseo o disposición distinta.", nonce: silentSendNonce }}
               theme={carousel.brandingOverride?.theme ?? "dark"}
               aspectRatio={carousel.aspectRatio}
               onCommitChanges={async (ratio, theme) => {
@@ -535,6 +610,40 @@ export default function CarouselEditorPage({ params }: PageProps) {
                 <Maximize2 className="h-3.5 w-3.5" />
               </Button>
               <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSilentSendNonce((n) => n + 1)}
+                disabled={isGenerating}
+                className="text-muted-foreground hover:text-accent"
+                aria-label={t("regenerate")}
+                title={t("regenerate")}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isGenerating ? "animate-spin" : ""}`} />
+              </Button>
+              {carousel.templateId && (
+                <Button
+                  variant={carousel.templateLocked ? "outline" : "ghost"}
+                  size="sm"
+                  onClick={async () => {
+                    const next = !carousel.templateLocked;
+                    const res = await fetch(`/api/carousels/${carousel.id}`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ templateLocked: next }),
+                    });
+                    if (res.ok) {
+                      const updated = await res.json();
+                      setCarousel(updated);
+                    }
+                  }}
+                  className={carousel.templateLocked ? "border-accent text-accent" : "text-muted-foreground"}
+                  aria-label={carousel.templateLocked ? t("templateLocked") : t("templateUnlocked")}
+                  title={carousel.templateLocked ? t("templateLocked") : t("templateUnlocked")}
+                >
+                  {carousel.templateLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
+                </Button>
+              )}
+              <Button
                 variant={showSafeZones ? "outline" : "ghost"}
                 size="sm"
                 onClick={() => toggleSafeZones(!showSafeZones)}
@@ -547,15 +656,11 @@ export default function CarouselEditorPage({ params }: PageProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={async () => {
-                  const res = await fetch("/api/templates", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ carouselId: carousel.id }),
-                  });
-                  if (res.ok) {
-                    setTemplateSaved(true);
-                    setTimeout(() => setTemplateSaved(false), 2000);
+                onClick={() => {
+                  if (carousel.templateId) {
+                    setTemplateChoiceOpen(true);
+                  } else {
+                    saveAsNewTemplate();
                   }
                 }}
                 className={templateSaved ? "text-accent" : "text-muted-foreground hover:text-accent"}

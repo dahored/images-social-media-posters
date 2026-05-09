@@ -60,7 +60,12 @@ export function CreateContentDialog({ open, onOpenChange, onCreate }: CreateCont
   };
 
   const useTemplate = async (templateId: string) => {
-    const res = await fetch(`/api/templates/${templateId}/use`, { method: "POST" });
+    const accountId = localStorage.getItem("activeAccountId") ?? undefined;
+    const res = await fetch(`/api/templates/${templateId}/use`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountId }),
+    });
     if (res.ok) {
       const carousel = await res.json();
       onOpenChange(false);
@@ -175,7 +180,7 @@ export function CreateContentDialog({ open, onOpenChange, onCreate }: CreateCont
                   <AspectRatioSelector value={aspectRatio} onChange={setAspectRatio} />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Tema</label>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("theme")}</label>
                   <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-md h-9">
                     <button
                       onClick={() => setTheme("dark")}
@@ -184,7 +189,7 @@ export function CreateContentDialog({ open, onOpenChange, onCreate }: CreateCont
                       }`}
                     >
                       <Moon className="h-3 w-3" />
-                      Oscuro
+                      {t("themeDark")}
                     </button>
                     <button
                       onClick={() => setTheme("light")}
@@ -193,7 +198,7 @@ export function CreateContentDialog({ open, onOpenChange, onCreate }: CreateCont
                       }`}
                     >
                       <Sun className="h-3 w-3" />
-                      Claro
+                      {t("themeLight")}
                     </button>
                   </div>
                 </div>

@@ -118,6 +118,6 @@ export function buildCaption(caption?: string, hashtags?: string[]): string {
   if (hashtags && hashtags.length > 0) {
     parts.push(hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" "));
   }
-  parts.push("🎨 via images-social-media-posters");
+  // parts.push("🎨 via images-social-media-posters");
   return parts.join("\n\n");
 }

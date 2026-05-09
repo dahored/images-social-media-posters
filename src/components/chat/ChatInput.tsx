@@ -84,7 +84,7 @@ export function ChatInput({ onSend, isStreaming, disabled, textareaRef: external
                 }`}
               >
                 <Moon className="h-2.5 w-2.5" />
-                Oscuro
+                {t("themeDark")}
               </button>
               <button
                 onClick={() => onThemeChange("light")}
@@ -93,7 +93,7 @@ export function ChatInput({ onSend, isStreaming, disabled, textareaRef: external
                 }`}
               >
                 <Sun className="h-2.5 w-2.5" />
-                Claro
+                {t("themeLight")}
               </button>
             </div>
           )}

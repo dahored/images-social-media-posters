@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useI18n } from "@/lib/i18n/context";
 import type { Network } from "@/types/network";
 
 export default function NetworksSettingsPage() {
+  const { t } = useI18n();
   const [networks, setNetworks] = useState<Network[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -55,8 +57,8 @@ export default function NetworksSettingsPage() {
   const handleDelete = (network: Network) => {
     setConfirmState({
       open: true,
-      title: `Delete "${network.name}"?`,
-      description: "This will remove the network from the catalog. Content using it won't be affected.",
+      title: t("networkDeleteTitle", { name: network.name }),
+      description: t("networkDeleteDesc"),
       onConfirm: async () => {
         await fetch(`/api/networks/${network.id}`, { method: "DELETE" });
         load();
@@ -85,7 +87,7 @@ export default function NetworksSettingsPage() {
         onOpenChange={(open) => setConfirmState((s) => ({ ...s, open }))}
         title={confirmState.title}
         description={confirmState.description}
-        confirmLabel="Delete"
+        confirmLabel={t("delete")}
         variant="destructive"
         onConfirm={confirmState.onConfirm}
       />
@@ -97,41 +99,41 @@ export default function NetworksSettingsPage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div>
-              <h1 className="text-xl font-bold">Network Catalog</h1>
+              <h1 className="text-xl font-bold">{t("networkCatalogTitle")}</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
-                Social networks and their supported formats
+                {t("networkCatalogSubtitle")}
               </p>
             </div>
             <div className="ml-auto">
               <Button onClick={() => setShowAddForm(true)} variant="accent" size="sm">
                 <Plus className="h-4 w-4" />
-                Add Network
+                {t("addNetwork")}
               </Button>
             </div>
           </div>
 
           {showAddForm && (
             <div className="mb-6 p-4 rounded-xl border border-accent/40 bg-accent/5 space-y-3">
-              <h3 className="text-sm font-semibold">New custom network</h3>
+              <h3 className="text-sm font-semibold">{t("newCustomNetwork")}</h3>
               <Input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="Network name (e.g. My Network)"
+                placeholder={t("networkNamePlaceholder")}
                 autoFocus
               />
               <Input
                 value={newHint}
                 onChange={(e) => setNewHint(e.target.value)}
-                placeholder="Style hint for the AI (optional)"
+                placeholder={t("networkStyleHintPlaceholder")}
               />
               <div className="flex gap-2">
                 <Button onClick={handleAdd} variant="accent" size="sm" disabled={!newName.trim()}>
                   <Check className="h-3.5 w-3.5" />
-                  Create
+                  {t("create")}
                 </Button>
                 <Button onClick={() => setShowAddForm(false)} variant="outline" size="sm">
                   <X className="h-3.5 w-3.5" />
-                  Cancel
+                  {t("cancel")}
                 </Button>
               </div>
             </div>
@@ -158,7 +160,7 @@ export default function NetworksSettingsPage() {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-semibold text-sm">{network.name}</span>
                         {network.builtin && (
-                          <Badge variant="secondary" className="text-[10px]">built-in</Badge>
+                          <Badge variant="secondary" className="text-[10px]">{t("networkBuiltinBadge")}</Badge>
                         )}
                         <div className="flex gap-1 ml-auto">
                           {network.formats.map((f) => (
@@ -175,7 +177,7 @@ export default function NetworksSettingsPage() {
                             value={editHint}
                             onChange={(e) => setEditHint(e.target.value)}
                             className="text-xs h-8"
-                            placeholder="Style hint for AI..."
+                            placeholder={t("networkStyleHintEditPlaceholder")}
                             autoFocus
                           />
                           <Button onClick={() => saveEdit(network.id)} variant="accent" size="sm">
@@ -187,7 +189,7 @@ export default function NetworksSettingsPage() {
                         </div>
                       ) : (
                         <p className="text-xs text-muted-foreground line-clamp-2">
-                          {network.defaultStyleHint || "No style hint set"}
+                          {network.defaultStyleHint || t("networkNoStyleHint")}
                         </p>
                       )}
                     </div>
@@ -197,7 +199,7 @@ export default function NetworksSettingsPage() {
                         <button
                           onClick={() => startEdit(network)}
                           className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
-                          title="Edit style hint"
+                          title={t("networkEditStyleHint")}
                         >
                           <Pencil className="h-3 w-3" />
                         </button>
@@ -205,7 +207,7 @@ export default function NetworksSettingsPage() {
                           <button
                             onClick={() => handleDelete(network)}
                             className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-muted"
-                            title="Delete network"
+                            title={t("networkDeleteNetwork")}
                           >
                             <Trash2 className="h-3 w-3" />
                           </button>

@@ -36,7 +36,14 @@ export function SlideRenderer({
   const { width: slideW, height: slideH } = DIMENSIONS[aspectRatio];
 
   const wrappedHtml = useMemo(
-    () => wrapSlideHtml(html, aspectRatio, { logoConfig, colorSubstitution, fontSubstitution, customBackground, accentOverride }),
+    () => wrapSlideHtml(html, aspectRatio, {
+      logoConfig,
+      colorSubstitution,
+      fontSubstitution,
+      customBackground,
+      accentOverride,
+      baseHref: typeof window !== "undefined" ? window.location.origin + "/" : undefined,
+    }),
     [html, aspectRatio, logoConfig, colorSubstitution, fontSubstitution, customBackground, accentOverride]
   );
 

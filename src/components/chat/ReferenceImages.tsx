@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n/context";
 import type { ReferenceImage } from "@/types/carousel";
 
 interface ReferenceImagesProps {
@@ -16,6 +17,7 @@ export function ReferenceImages({
   images,
   onImagesChange,
 }: ReferenceImagesProps) {
+  const { t } = useI18n();
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -89,7 +91,7 @@ export function ReferenceImages({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2">
         <span className="text-xs font-medium text-muted-foreground">
-          Reference Images
+          {t("referenceImages")}
         </span>
         <Button
           variant="ghost"
@@ -99,7 +101,7 @@ export function ReferenceImages({
           className="h-6 text-xs gap-1 px-2"
         >
           <ImagePlus className="h-3 w-3" />
-          {uploading ? "Uploading..." : "Add"}
+          {uploading ? t("uploading") : t("referenceImagesAdd")}
         </Button>
       </div>
 
@@ -113,10 +115,10 @@ export function ReferenceImages({
         >
           <ImagePlus className="h-4 w-4 mx-auto text-muted-foreground/50 mb-1" />
           <p className="text-[10px] text-muted-foreground">
-            Drop reference images here
+            {t("referenceImagesDrop")}
           </p>
           <p className="text-[9px] text-muted-foreground/70">
-            The AI will study these to match your style
+            {t("referenceImagesAiHint")}
           </p>
         </div>
       ) : (

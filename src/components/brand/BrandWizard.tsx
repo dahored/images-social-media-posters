@@ -235,12 +235,11 @@ export function BrandWizard({ onComplete, brandId, initialBrand }: BrandWizardPr
                 </div>
                 <p className="text-[18px] font-black leading-tight"
                   style={{ color: previewColors.background, fontFamily: draft.fonts.heading }}>
-                  Your brand,{" "}
-                  <span style={{ color: previewColors.accent }}>your style.</span>
+                  {t("brandPreviewTagline")}
                 </p>
                 <p className="text-[11px] leading-relaxed opacity-60 mt-1"
                   style={{ color: previewColors.background, fontFamily: draft.fonts.body }}>
-                  Consistent visual identity across every post.
+                  {t("brandPreviewDesc")}
                 </p>
                 <div className="w-6 h-px mt-2" style={{ backgroundColor: previewColors.accent }} />
               </div>
@@ -289,7 +288,7 @@ export function BrandWizard({ onComplete, brandId, initialBrand }: BrandWizardPr
           {/* Logo position + height */}
           <div className="flex items-end gap-4 mt-4">
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Posición</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("logoPosition")}</label>
               <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-md">
                 {LOGO_POSITIONS.map(({ value, Icon }) => (
                   <button
@@ -308,7 +307,7 @@ export function BrandWizard({ onComplete, brandId, initialBrand }: BrandWizardPr
               </div>
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Altura (px)</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("logoHeight")}</label>
               <input
                 type="number"
                 min={24}
