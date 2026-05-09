@@ -92,6 +92,7 @@ export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSa
   const cols = size === 3 ? 3 : 3;
 
   return (
+    <>
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay data-oc-overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
@@ -314,5 +315,6 @@ export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSa
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+    </>
   );
 }
