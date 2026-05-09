@@ -76,6 +76,15 @@ export async function GET() {
 
       const onChunk = (chunk: Buffer | string) => {
         const text = (typeof chunk === "string" ? chunk : chunk.toString()).replace(/\r/g, "");
+
+        // PTY wraps long lines at the terminal width, splitting the OAuth URL across multiple
+        // \n characters. Join the full chunk before searching so we capture the complete URL.
+        if (!urlSent) {
+          const joined = text.replace(/\n/g, "");
+          const urlMatch = joined.match(/https:\/\/[^\s"'<>]{80,}/);
+          if (urlMatch) { urlSent = true; send({ type: "url", url: urlMatch[0] }); }
+        }
+
         text.split("\n").forEach(onLine);
       };
 
@@ -91,7 +100,7 @@ export async function GET() {
 
         const term = pty.spawn(claudePath, [], {
           name: "xterm-color",
-          cols: 120,
+          cols: 2000,
           rows: 30,
           env: { ...process.env, BROWSER: "echo" } as Record<string, string>,
         });
