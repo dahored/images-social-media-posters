@@ -164,53 +164,6 @@ export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSa
               </div>
             </div>
 
-            {pickerOpen !== null && (
-              <div className="rounded-lg border border-border p-3 bg-muted/30">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium">
-                    {t("pickTemplateForCell", { n: String(pickerOpen + 1) })}
-                  </span>
-                  <button onClick={() => setPickerOpen(null)} className="text-xs text-muted-foreground hover:text-foreground">
-                    {t("cancel")}
-                  </button>
-                </div>
-                {items.find((i) => i.position === pickerOpen)?.templateId && (
-                  <button
-                    onClick={() => setItemTemplate(pickerOpen, undefined)}
-                    className="w-full text-left text-xs text-destructive hover:bg-destructive/10 rounded px-2 py-1.5 mb-2"
-                  >
-                    {t("clearCell")}
-                  </button>
-                )}
-                {templates.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-3 text-center">{t("noTemplates")}</p>
-                ) : (
-                  <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto">
-                    {templates.map((tpl) => (
-                      <button
-                        key={tpl.id}
-                        onClick={() => setItemTemplate(pickerOpen, tpl.id)}
-                        className="rounded-md border border-border hover:border-accent bg-background overflow-hidden text-left"
-                      >
-                        <div className="aspect-square">
-                          {tpl.slides[0] && (
-                            <SlideRenderer html={tpl.slides[0].html} aspectRatio={tpl.aspectRatio} className="w-full h-full" />
-                          )}
-                        </div>
-                        <div className="px-2 py-1.5 flex items-center gap-1.5">
-                          {tpl.kind === "post" ? (
-                            <ImageIcon className="h-3 w-3 text-muted-foreground shrink-0" />
-                          ) : (
-                            <SlidersHorizontal className="h-3 w-3 text-muted-foreground shrink-0" />
-                          )}
-                          <span className="text-[11px] truncate">{tpl.name}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
             <div>
@@ -301,6 +254,62 @@ export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSa
             <Button variant="accent" size="sm" disabled={!name.trim() || saving} onClick={handleSave}>
               {saving ? t("saving") : t("save")}
             </Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+
+    {/* Template picker — nested modal on top of the builder dialog */}
+    <Dialog.Root open={pickerOpen !== null} onOpenChange={(o) => { if (!o) setPickerOpen(null); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-60 bg-black/50 backdrop-blur-sm" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-60 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface border border-border p-5 shadow-2xl max-h-[85vh] flex flex-col">
+          <div className="flex items-center justify-between mb-4 shrink-0">
+            <Dialog.Title className="text-sm font-semibold">
+              {pickerOpen !== null ? t("pickTemplateForCell", { n: String(pickerOpen + 1) }) : ""}
+            </Dialog.Title>
+            <Dialog.Close asChild>
+              <button className="text-sm text-muted-foreground hover:text-foreground">{t("cancel")}</button>
+            </Dialog.Close>
+          </div>
+
+          {pickerOpen !== null && items.find((i) => i.position === pickerOpen)?.templateId && (
+            <button
+              onClick={() => setItemTemplate(pickerOpen, undefined)}
+              className="w-full text-left text-xs text-destructive hover:bg-destructive/10 rounded px-2 py-1.5 mb-3 shrink-0"
+            >
+              {t("clearCell")}
+            </button>
+          )}
+
+          <div className="overflow-y-auto flex-1">
+            {templates.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-6 text-center">{t("noTemplates")}</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                {templates.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    onClick={() => pickerOpen !== null && setItemTemplate(pickerOpen, tpl.id)}
+                    className="rounded-lg border border-border hover:border-accent bg-background overflow-hidden text-left transition-colors"
+                  >
+                    <div className="aspect-square">
+                      {tpl.slides[0] && (
+                        <SlideRenderer html={tpl.slides[0].html} aspectRatio={tpl.aspectRatio} className="w-full h-full" />
+                      )}
+                    </div>
+                    <div className="px-2 py-1.5 flex items-center gap-1.5 border-t border-border">
+                      {tpl.kind === "post" ? (
+                        <ImageIcon className="h-3 w-3 text-muted-foreground shrink-0" />
+                      ) : (
+                        <SlidersHorizontal className="h-3 w-3 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="text-[11px] truncate">{tpl.name}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </Dialog.Content>
       </Dialog.Portal>
