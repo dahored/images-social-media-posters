@@ -175,6 +175,8 @@ export const en = {
   pickTemplateForCell: "Pick a template for cell {n}",
   clearCell: "Clear this cell",
   addTemplate: "Add template",
+  selectTemplate: "Select",
+  preview: "Preview",
   change: "Change",
 
   // Bulk (Masivo)

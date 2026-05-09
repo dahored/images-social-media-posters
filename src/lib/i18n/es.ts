@@ -177,6 +177,8 @@ export const es: Record<TranslationKey, string> = {
   pickTemplateForCell: "Elige una plantilla para la celda {n}",
   clearCell: "Quitar de la celda",
   addTemplate: "Añadir plantilla",
+  selectTemplate: "Seleccionar",
+  preview: "Vista previa",
   change: "Cambiar",
 
   // Masivo (Bulk)

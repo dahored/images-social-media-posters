@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { X, Image as ImageIcon, SlidersHorizontal } from "lucide-react";
+import { X, Image as ImageIcon, SlidersHorizontal, Eye, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/context";
@@ -26,6 +26,7 @@ export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSa
   const [size, setSize] = useState<GridSize>(6);
   const [items, setItems] = useState<GridItem[]>([]);
   const [pickerOpen, setPickerOpen] = useState<number | null>(null);
+  const [previewTpl, setPreviewTpl] = useState<Template | null>(null);
   const [saving, setSaving] = useState(false);
   const [scheduledStartAt, setScheduledStartAt] = useState("");
   const [scheduledEndAt, setScheduledEndAt] = useState("");
@@ -288,29 +289,102 @@ export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSa
               <p className="text-xs text-muted-foreground py-6 text-center">{t("noTemplates")}</p>
             ) : (
               <div className="grid grid-cols-3 gap-3">
-                {templates.map((tpl) => (
-                  <button
-                    key={tpl.id}
-                    onClick={() => pickerOpen !== null && setItemTemplate(pickerOpen, tpl.id)}
-                    className="rounded-lg border border-border hover:border-accent bg-background overflow-hidden text-left transition-colors"
-                  >
-                    <div className="aspect-square">
-                      {tpl.slides[0] && (
-                        <SlideRenderer html={tpl.slides[0].html} aspectRatio={tpl.aspectRatio} className="w-full h-full" />
-                      )}
+                {templates.map((tpl) => {
+                  const isPost = tpl.kind === "post";
+                  return (
+                    <div key={tpl.id} className="rounded-lg border border-border hover:border-accent bg-background overflow-hidden transition-colors group">
+                      {/* Preview — fixed height so SlideRenderer can measure */}
+                      <button
+                        onClick={() => pickerOpen !== null && setItemTemplate(pickerOpen, tpl.id)}
+                        className="relative w-full h-40 bg-muted overflow-hidden block"
+                      >
+                        {tpl.slides[0] ? (
+                          <SlideRenderer html={tpl.slides[0].html} aspectRatio={tpl.aspectRatio} className="w-full h-full" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground/40">
+                            <ImageIcon className="h-8 w-8" />
+                          </div>
+                        )}
+                        {/* Hover overlay with "Seleccionar" CTA */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                          <span className="flex items-center gap-1.5 bg-white text-black text-xs font-semibold px-3 py-1.5 rounded-full shadow">
+                            <Check className="h-3.5 w-3.5" />
+                            {t("selectTemplate")}
+                          </span>
+                        </div>
+                        {/* Type badge */}
+                        <span className={`absolute top-1.5 left-1.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${isPost ? "bg-blue-500/90 text-white" : "bg-violet-500/90 text-white"}`}>
+                          {isPost ? "Post" : "Carrusel"}
+                        </span>
+                        {/* Fullscreen preview button */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setPreviewTpl(tpl); }}
+                          className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+                          title={t("preview")}
+                        >
+                          <Eye className="h-3 w-3" />
+                        </button>
+                      </button>
+                      <button
+                        onClick={() => pickerOpen !== null && setItemTemplate(pickerOpen, tpl.id)}
+                        className="w-full px-2 py-1.5 border-t border-border text-left"
+                      >
+                        <span className="text-[11px] font-medium truncate block">{tpl.name}</span>
+                      </button>
                     </div>
-                    <div className="px-2 py-1.5 flex items-center gap-1.5 border-t border-border">
-                      {tpl.kind === "post" ? (
-                        <ImageIcon className="h-3 w-3 text-muted-foreground shrink-0" />
-                      ) : (
-                        <SlidersHorizontal className="h-3 w-3 text-muted-foreground shrink-0" />
-                      )}
-                      <span className="text-[11px] truncate">{tpl.name}</span>
-                    </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             )}
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+
+    {/* Fullscreen template preview */}
+    <Dialog.Root open={previewTpl !== null} onOpenChange={(o) => { if (!o) setPreviewTpl(null); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-70 bg-black/70 backdrop-blur-sm" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-70 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface border border-border p-5 shadow-2xl flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Dialog.Title className="text-sm font-semibold">{previewTpl?.name}</Dialog.Title>
+              {previewTpl && (
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5 inline-block ${previewTpl.kind === "post" ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700"}`}>
+                  {previewTpl.kind === "post" ? "Post" : "Carrusel"}
+                </span>
+              )}
+            </div>
+            <Dialog.Close asChild>
+              <button className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted">
+                <X className="h-4 w-4" />
+              </button>
+            </Dialog.Close>
+          </div>
+
+          {previewTpl?.slides[0] && (
+            <div className="h-96 bg-muted rounded-lg overflow-hidden">
+              <SlideRenderer html={previewTpl.slides[0].html} aspectRatio={previewTpl.aspectRatio} className="w-full h-full" />
+            </div>
+          )}
+
+          <div className="flex gap-2 justify-end">
+            <Dialog.Close asChild>
+              <Button variant="ghost" size="sm">{t("cancel")}</Button>
+            </Dialog.Close>
+            <Button
+              variant="accent"
+              size="sm"
+              onClick={() => {
+                if (previewTpl && pickerOpen !== null) {
+                  setItemTemplate(pickerOpen, previewTpl.id);
+                  setPreviewTpl(null);
+                }
+              }}
+            >
+              <Check className="h-3.5 w-3.5 mr-1.5" />
+              {t("selectTemplate")}
+            </Button>
           </div>
         </Dialog.Content>
       </Dialog.Portal>
