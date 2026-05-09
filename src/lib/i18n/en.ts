@@ -3,6 +3,7 @@ export const en = {
   save: "Save",
   saving: "Saving…",
   cancel: "Cancel",
+  refresh: "Refresh",
   confirm: "Confirm",
   delete: "Delete",
   back: "Back",
@@ -479,6 +480,27 @@ export const en = {
   referenceImagesAdd: "Add",
   referenceImagesDrop: "Drop reference images here",
   referenceImagesAiHint: "The AI will study these to match your style",
+
+  // Claude settings page
+  claudeSettingsTitle: "Claude",
+  claudeSettingsSubtitle: "AI assistant authentication",
+  claudeCheckingStatus: "Checking connection status…",
+  claudeConnected: "Connected",
+  claudeConnectedDesc: "Claude CLI is authenticated and ready to use",
+  claudeNotConnected: "Not connected",
+  claudeNotConnectedDesc: "Sign in to enable the AI chat assistant",
+  claudeUnavailable: "Claude CLI not found",
+  claudeUnavailableDesc: "Install Claude Code CLI and restart the app",
+  claudeConnectBtn: "Connect Claude",
+  claudeStartingLogin: "Starting login flow…",
+  claudeOpenUrlDesc: "Open this link in your browser to authenticate:",
+  claudeOpenLoginPage: "Open login page",
+  claudeWaitingLogin: "Waiting for you to complete login in browser…",
+  claudeLoginDone: "Connected successfully!",
+  claudeRetryLogin: "Try again",
+  claudeLoginError: "Login failed",
+  claudeLoginConnectionFailed: "Connection to login process failed",
+  claudeSettingsHint: "Authentication is stored locally. Re-run the login if the session expires.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

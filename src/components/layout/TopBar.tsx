@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, Settings, Layers, Building2, Globe, Send, CalendarDays, LayoutDashboard } from "lucide-react";
+import { ArrowLeft, Settings, Layers, Building2, Globe, Send, CalendarDays, LayoutDashboard, BotMessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AccountSelector } from "@/components/brand/AccountSelector";
 import { useI18n, type Locale } from "@/lib/i18n/context";
@@ -84,6 +84,7 @@ function SettingsDropdown() {
     { href: "/brands", icon: Building2, label: t("brands") },
     { href: "/settings/networks", icon: Globe, label: t("networks") },
     { href: "/settings/telegram", icon: Send, label: t("telegram") },
+    { href: "/settings/claude", icon: BotMessageSquare, label: "Claude" },
   ];
 
   return (
