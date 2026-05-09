@@ -1,5 +1,5 @@
 import { findClaudePath } from "@/lib/claude-path";
-import { spawn } from "child_process";
+import * as pty from "node-pty";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,73 +23,78 @@ export async function GET() {
         } catch { /* stream closed */ }
       };
 
-      // Send an immediate event so the browser knows SSE is working
-      send({ type: "log", text: "Connecting to Claude CLI…" });
+      send({ type: "log", text: "Starting Claude CLI with PTY…" });
 
-      // SSE keepalive: comment lines prevent proxy/browser timeouts and
-      // force buffer flushing in environments that buffer streaming responses.
+      // Keepalive to prevent proxy/browser timeouts and force buffer flushing
       const keepalive = setInterval(() => {
         try { controller.enqueue(encoder.encode(": keepalive\n\n")); } catch { /* closed */ }
       }, 3000);
 
-      // Launch claude in interactive mode (no args) then pipe /login as the
-      // first command. BROWSER=echo makes it print the OAuth URL to stdout
-      // instead of trying to open a browser (which fails in Docker).
-      const child = spawn(claudePath, [], {
-        stdio: ["pipe", "pipe", "pipe"],
-        env: { ...process.env, BROWSER: "echo" },
+      // Spawn Claude in a PTY so it behaves as if it has a real terminal.
+      // Without a PTY, Claude ignores slash commands and never outputs the URL.
+      const term = pty.spawn(claudePath, [], {
+        name: "xterm-color",
+        cols: 120,
+        rows: 30,
+        env: { ...process.env, BROWSER: "echo" } as Record<string, string>,
       });
 
-      // Give the REPL 3s to fully start before sending /login
-      setTimeout(() => {
-        send({ type: "log", text: "Sending /login command…" });
-        child.stdin?.write("/login\n");
-      }, 3000);
+      let urlSent = false;
 
-      const onOutput = (chunk: Buffer) => {
-        const text = chunk.toString();
+      term.onData((data: string) => {
+        // Strip ANSI escape codes for clean log output
+        const clean = data.replace(/\x1b\[[0-9;]*[mGKHF]/g, "").replace(/\r/g, "");
 
-        for (const line of text.split("\n")) {
+        for (const line of clean.split("\n")) {
           const trimmed = line.trim();
           if (!trimmed) continue;
-
           send({ type: "log", text: trimmed });
 
-          // Detect the OAuth URL (claude login prints it when it can't open a browser)
-          const match = trimmed.match(/https:\/\/[^\s"']+/);
-          if (match) {
-            send({ type: "url", url: match[0] });
+          // Detect the OAuth URL
+          if (!urlSent) {
+            const match = trimmed.match(/https:\/\/[^\s"']+/);
+            if (match) {
+              urlSent = true;
+              send({ type: "url", url: match[0] });
+            }
+          }
+
+          // Detect successful login
+          if (/logged in|login successful|authenticated|welcome/i.test(trimmed)) {
+            send({ type: "done" });
+            clearTimeout(timeout);
+            clearInterval(keepalive);
+            term.kill();
+            try { controller.close(); } catch { /* already closed */ }
           }
         }
-      };
+      });
 
-      child.stdout?.on("data", onOutput);
-      child.stderr?.on("data", onOutput);
-
-      // 3-minute timeout — more than enough for the user to complete OAuth
-      const timeout = setTimeout(() => {
-        child.kill();
-        send({ type: "error", message: "Login timed out after 3 minutes" });
-        controller.close();
-      }, 180_000);
-
-      child.on("close", (code) => {
+      term.onExit(({ exitCode }: { exitCode: number }) => {
         clearTimeout(timeout);
         clearInterval(keepalive);
-        if (code === 0) {
+        if (exitCode === 0) {
           send({ type: "done" });
         } else {
-          send({ type: "error", message: `Login process exited with code ${code}` });
+          send({ type: "error", message: `Process exited with code ${exitCode}` });
         }
         try { controller.close(); } catch { /* already closed */ }
       });
 
-      child.on("error", (err) => {
-        clearTimeout(timeout);
+      // Send /login after 3s — enough for Claude to show its startup prompt
+      const loginTimer = setTimeout(() => {
+        send({ type: "log", text: "Sending /login…" });
+        term.write("/login\r");
+      }, 3000);
+
+      // 3-minute hard timeout
+      const timeout = setTimeout(() => {
         clearInterval(keepalive);
-        send({ type: "error", message: err.message });
+        clearTimeout(loginTimer);
+        term.kill();
+        send({ type: "error", message: "Login timed out after 3 minutes" });
         try { controller.close(); } catch { /* already closed */ }
-      });
+      }, 180_000);
     },
   });
 

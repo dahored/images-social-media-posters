@@ -3,6 +3,9 @@ FROM node:20-bookworm-slim AS base
 RUN apt-get update && apt-get install -y \
     chromium \
     fonts-liberation \
+    python3 \
+    make \
+    g++ \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
