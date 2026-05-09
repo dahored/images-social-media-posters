@@ -1,5 +1,5 @@
 import { findClaudePath } from "@/lib/claude-path";
-import * as pty from "node-pty";
+import { spawn } from "child_process";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,76 +23,91 @@ export async function GET() {
         } catch { /* stream closed */ }
       };
 
-      send({ type: "log", text: "Starting Claude CLI with PTY…" });
-
-      // Keepalive to prevent proxy/browser timeouts and force buffer flushing
       const keepalive = setInterval(() => {
         try { controller.enqueue(encoder.encode(": keepalive\n\n")); } catch { /* closed */ }
       }, 3000);
 
-      // Spawn Claude in a PTY so it behaves as if it has a real terminal.
-      // Without a PTY, Claude ignores slash commands and never outputs the URL.
-      const term = pty.spawn(claudePath, [], {
-        name: "xterm-color",
-        cols: 120,
-        rows: 30,
-        env: { ...process.env, BROWSER: "echo" } as Record<string, string>,
-      });
-
       let urlSent = false;
+      let settled = false;
 
-      term.onData((data: string) => {
-        // Strip ANSI escape codes for clean log output
-        const clean = data.replace(/\x1b\[[0-9;]*[mGKHF]/g, "").replace(/\r/g, "");
-
-        for (const line of clean.split("\n")) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          send({ type: "log", text: trimmed });
-
-          // Detect the OAuth URL
-          if (!urlSent) {
-            const match = trimmed.match(/https:\/\/[^\s"']+/);
-            if (match) {
-              urlSent = true;
-              send({ type: "url", url: match[0] });
-            }
-          }
-
-          // Detect successful login
-          if (/logged in|login successful|authenticated|welcome/i.test(trimmed)) {
-            send({ type: "done" });
-            clearTimeout(timeout);
-            clearInterval(keepalive);
-            term.kill();
-            try { controller.close(); } catch { /* already closed */ }
-          }
-        }
-      });
-
-      term.onExit(({ exitCode }: { exitCode: number }) => {
-        clearTimeout(timeout);
+      const settle = (exitCode: number) => {
+        if (settled) return;
+        settled = true;
         clearInterval(keepalive);
+        clearTimeout(hardTimeout);
         if (exitCode === 0) {
           send({ type: "done" });
         } else {
           send({ type: "error", message: `Process exited with code ${exitCode}` });
         }
         try { controller.close(); } catch { /* already closed */ }
-      });
+      };
 
-      // Send /login after 3s — enough for Claude to show its startup prompt
-      const loginTimer = setTimeout(() => {
+      const onLine = (line: string) => {
+        const trimmed = line.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").trim();
+        if (!trimmed) return;
+        send({ type: "log", text: trimmed });
+        if (!urlSent) {
+          const match = trimmed.match(/https:\/\/[^\s"'<>]+/);
+          if (match) { urlSent = true; send({ type: "url", url: match[0] }); }
+        }
+        if (/logged.?in successfully|login complete|authenticated/i.test(trimmed) && urlSent) {
+          settle(0);
+        }
+      };
+
+      const onChunk = (chunk: Buffer | string) => {
+        const text = (typeof chunk === "string" ? chunk : chunk.toString()).replace(/\r/g, "");
+        text.split("\n").forEach(onLine);
+      };
+
+      // write() and kill() are set in either the PTY or the pipe branch
+      let writeFn: (s: string) => void = () => {};
+      let killFn: () => void = () => {};
+
+      try {
+        // Dynamic require — a missing native module won't crash the handler
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const pty = require("node-pty") as typeof import("node-pty");
+        send({ type: "log", text: "Starting Claude CLI (PTY mode)…" });
+
+        const term = pty.spawn(claudePath, [], {
+          name: "xterm-color",
+          cols: 120,
+          rows: 30,
+          env: { ...process.env, BROWSER: "echo" } as Record<string, string>,
+        });
+
+        term.onData((data: string) => onChunk(data));
+        term.onExit(({ exitCode }: { exitCode: number }) => settle(exitCode));
+        writeFn = (s) => term.write(s);
+        killFn = () => term.kill();
+
+      } catch (e) {
+        send({ type: "log", text: `PTY not available: ${(e as Error).message}` });
+        send({ type: "log", text: "Falling back to pipe mode…" });
+
+        const child = spawn(claudePath, [], {
+          stdio: ["pipe", "pipe", "pipe"],
+          env: { ...process.env, BROWSER: "echo" },
+        });
+        child.stdout?.on("data", onChunk);
+        child.stderr?.on("data", onChunk);
+        child.on("close", (code) => settle(code ?? 1));
+        writeFn = (s) => child.stdin?.write(s);
+        killFn = () => child.kill();
+      }
+
+      // Give Claude 4s to display its startup prompt, then send /login
+      setTimeout(() => {
         send({ type: "log", text: "Sending /login…" });
-        term.write("/login\r");
-      }, 3000);
+        writeFn("/login\r");
+      }, 4000);
 
-      // 3-minute hard timeout
-      const timeout = setTimeout(() => {
+      const hardTimeout = setTimeout(() => {
+        killFn();
         clearInterval(keepalive);
-        clearTimeout(loginTimer);
-        term.kill();
-        send({ type: "error", message: "Login timed out after 3 minutes" });
+        send({ type: "error", message: "Login timed out (3 min)" });
         try { controller.close(); } catch { /* already closed */ }
       }, 180_000);
     },
