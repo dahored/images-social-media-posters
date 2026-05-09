@@ -32,8 +32,6 @@ export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSa
   const [previewSlide, setPreviewSlide] = useState(0);
   const [cardSlides, setCardSlides] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
-  const [scheduledStartAt, setScheduledStartAt] = useState("");
-  const [scheduledEndAt, setScheduledEndAt] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -41,14 +39,10 @@ export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSa
       setName(editing.name);
       setSize(editing.size);
       setItems(editing.items);
-      setScheduledStartAt(editing.scheduledStartAt?.slice(0, 10) ?? "");
-      setScheduledEndAt(editing.scheduledEndAt?.slice(0, 10) ?? "");
     } else {
       setName("");
       setSize(6);
       setItems(Array.from({ length: 6 }, (_, i) => ({ position: i })));
-      setScheduledStartAt("");
-      setScheduledEndAt("");
     }
   }, [open, editing]);
 
@@ -69,22 +63,18 @@ export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSa
     if (!trimmed) return;
     setSaving(true);
     try {
-      const schedulePayload = {
-        scheduledStartAt: scheduledStartAt || undefined,
-        scheduledEndAt: scheduledEndAt || undefined,
-      };
       if (editing) {
         await fetch(`/api/grids/${editing.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: trimmed, size, items, ...schedulePayload }),
+          body: JSON.stringify({ name: trimmed, size, items }),
         });
       } else {
         const accountId = localStorage.getItem("activeAccountId") ?? undefined;
         await fetch("/api/grids", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: trimmed, size, items, accountId, ...schedulePayload }),
+          body: JSON.stringify({ name: trimmed, size, items, accountId }),
         });
       }
       onSaved();
@@ -211,45 +201,6 @@ export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSa
                     </div>
                   );
                 })}
-              </div>
-            </div>
-
-            {/* Schedule date range */}
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("scheduleRange")}</label>
-              <p className="text-[11px] text-muted-foreground mb-2">{t("scheduleRangeHint")}</p>
-              <div className="flex gap-2 flex-wrap">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[11px] text-muted-foreground">{t("scheduleRangeStart")}</span>
-                  <input
-                    type="date"
-                    value={scheduledStartAt}
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={(e) => setScheduledStartAt(e.target.value)}
-                    className="h-8 px-2.5 rounded-md border border-border bg-background text-xs"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[11px] text-muted-foreground">{t("scheduleRangeEnd")}</span>
-                  <input
-                    type="date"
-                    value={scheduledEndAt}
-                    min={scheduledStartAt}
-                    onChange={(e) => setScheduledEndAt(e.target.value)}
-                    className="h-8 px-2.5 rounded-md border border-border bg-background text-xs"
-                    disabled={!scheduledStartAt}
-                  />
-                </div>
-                {scheduledStartAt && (
-                  <div className="flex flex-col gap-1 justify-end">
-                    <button
-                      onClick={() => { setScheduledStartAt(""); setScheduledEndAt(""); }}
-                      className="h-8 px-2.5 rounded-md text-xs text-muted-foreground hover:text-destructive border border-border"
-                    >
-                      {t("clearDate")}
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
 
