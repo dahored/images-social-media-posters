@@ -216,6 +216,11 @@ export default function ClaudeSettingsPage() {
                     <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
                       {loginError}
                     </p>
+                    {logs.length > 0 && (
+                      <div className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground font-mono max-h-24 overflow-y-auto space-y-0.5">
+                        {logs.map((l, i) => <div key={i}>{l}</div>)}
+                      </div>
+                    )}
                     <Button onClick={startLogin} variant="outline" size="sm">
                       {t("claudeRetryLogin")}
                     </Button>

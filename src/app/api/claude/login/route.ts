@@ -23,10 +23,12 @@ export async function GET() {
         } catch { /* stream closed */ }
       };
 
+      // BROWSER=echo makes claude print the OAuth URL to stdout instead of
+      // trying to open a browser (which fails in Docker/headless environments).
       const child = spawn(claudePath, ["login"], {
         stdio: ["pipe", "pipe", "pipe"],
+        env: { ...process.env, BROWSER: "echo" },
       });
-      child.stdin?.end();
 
       const onOutput = (chunk: Buffer) => {
         const text = chunk.toString();
