@@ -21,6 +21,7 @@ export default function ClaudeSettingsPage() {
   const [codeInput, setCodeInput] = useState("");
   const esRef = useRef<EventSource | null>(null);
   const popupRef = useRef<Window | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const checkStatus = async () => {
     setStatus("checking");
@@ -36,7 +37,10 @@ export default function ClaudeSettingsPage() {
 
   useEffect(() => {
     checkStatus();
-    return () => { esRef.current?.close(); };
+    return () => {
+      esRef.current?.close();
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, []);
 
   const startLogin = () => {
@@ -120,8 +124,27 @@ export default function ClaudeSettingsPage() {
         const err = await res.json();
         setLoginStep("error");
         setLoginError(err.error ?? t("claudeLoginError"));
+        return;
       }
-      // On success, the SSE stream will send { type: "done" } when Claude confirms
+      // Poll /api/claude/status every 2s as robust fallback in case Claude's
+      // output text doesn't match the SSE "done" pattern
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        try {
+          const r = await fetch("/api/claude/status");
+          const d = await r.json();
+          if (d.loggedIn) {
+            clearInterval(pollRef.current!);
+            pollRef.current = null;
+            esRef.current?.close();
+            popupRef.current?.close();
+            setLoginStep("done");
+            setStatus("logged-in");
+          }
+        } catch { /* ignore polling errors */ }
+      }, 2000);
+      // Give up polling after 2 min
+      setTimeout(() => { if (pollRef.current) clearInterval(pollRef.current); }, 120_000);
     } catch {
       setLoginStep("error");
       setLoginError(t("claudeLoginError"));
@@ -131,6 +154,7 @@ export default function ClaudeSettingsPage() {
   const cancelLogin = () => {
     esRef.current?.close();
     popupRef.current?.close();
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     setLoginStep("idle");
     setLoginUrl(null);
     setLoginError(null);

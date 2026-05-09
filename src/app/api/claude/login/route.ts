@@ -78,7 +78,8 @@ export async function GET() {
         }
 
         // After the user completes OAuth, Claude confirms login.
-        if (/logged.?in successfully|login complete|authenticated/i.test(trimmed)) {
+        // PTY strips spaces → "Loggedin" / "Loggedinas" / "Loginsuccessful"
+        if (/logged.{0,5}in|loginsucc|authenticat|signedin/i.test(trimmed)) {
           settle(0);
         }
       };
