@@ -23,6 +23,15 @@ export async function GET() {
         } catch { /* stream closed */ }
       };
 
+      // Send an immediate event so the browser knows SSE is working
+      send({ type: "log", text: "Connecting to Claude CLI…" });
+
+      // SSE keepalive: comment lines prevent proxy/browser timeouts and
+      // force buffer flushing in environments that buffer streaming responses.
+      const keepalive = setInterval(() => {
+        try { controller.enqueue(encoder.encode(": keepalive\n\n")); } catch { /* closed */ }
+      }, 3000);
+
       // Launch claude in interactive mode (no args) then pipe /login as the
       // first command. BROWSER=echo makes it print the OAuth URL to stdout
       // instead of trying to open a browser (which fails in Docker).
@@ -31,8 +40,11 @@ export async function GET() {
         env: { ...process.env, BROWSER: "echo" },
       });
 
-      // Wait briefly for the REPL to initialise before sending /login
-      setTimeout(() => { child.stdin?.write("/login\n"); }, 1500);
+      // Give the REPL 3s to fully start before sending /login
+      setTimeout(() => {
+        send({ type: "log", text: "Sending /login command…" });
+        child.stdin?.write("/login\n");
+      }, 3000);
 
       const onOutput = (chunk: Buffer) => {
         const text = chunk.toString();
@@ -63,6 +75,7 @@ export async function GET() {
 
       child.on("close", (code) => {
         clearTimeout(timeout);
+        clearInterval(keepalive);
         if (code === 0) {
           send({ type: "done" });
         } else {
@@ -73,6 +86,7 @@ export async function GET() {
 
       child.on("error", (err) => {
         clearTimeout(timeout);
+        clearInterval(keepalive);
         send({ type: "error", message: err.message });
         try { controller.close(); } catch { /* already closed */ }
       });
