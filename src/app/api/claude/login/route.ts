@@ -52,12 +52,13 @@ export async function GET() {
         send({ type: "log", text: trimmed });
 
         // Claude shows a numbered login-method selector when not authenticated.
-        // Automatically pick option 1 (Claude subscription account).
-        if (!menuAnswered && /select login method|choose.*login|login method/i.test(trimmed)) {
+        // PTY output strips spaces between words → "Selectloginmethod:" instead of "Select login method:".
+        // Option 1 is pre-selected (shown by ">"); sending \r confirms it.
+        if (!menuAnswered && /login.{0,5}method|1\..*claude.*subscription|1\..*claude.*account/i.test(trimmed)) {
           menuAnswered = true;
           setTimeout(() => {
-            send({ type: "log", text: "→ Selecting Claude subscription account…" });
-            writeFn("1\r");
+            send({ type: "log", text: "→ Confirmando opción 1 (Claude subscription)…" });
+            writeFn("\r");
           }, 400);
         }
 
