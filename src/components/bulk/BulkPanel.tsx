@@ -179,7 +179,7 @@ export function BulkPanel() {
         } else {
           cIdx++;
           exampleBlocks.push(
-            `${t("bulkExampleCarouselHeading", { n: String(cIdx) })}\n- ${t("bulkExampleCarouselPoint", { n: "1", c: String(cIdx) })}\n- ${t("bulkExampleCarouselPoint", { n: "2", c: String(cIdx) })}\n- ${t("bulkExampleCarouselPoint", { n: "3", c: String(cIdx) })}`
+            `${t("bulkExampleCarouselHeading", { n: String(cIdx) })}\n- ${t("bulkExampleCarouselTopic", { n: String(cIdx) })}`
           );
         }
       }
