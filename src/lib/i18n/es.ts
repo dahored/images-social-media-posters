@@ -503,4 +503,8 @@ export const es: Record<TranslationKey, string> = {
   claudeLoginError: "Error al iniciar sesión",
   claudeLoginConnectionFailed: "Falló la conexión con el proceso de login",
   claudeSettingsHint: "La autenticación se guarda localmente. Vuelve a hacer login si la sesión expira.",
+  claudeManualFallbackTitle: "Login manual (terminal)",
+  claudeManualFallbackDesc: "Ejecuta este comando en tu terminal, luego escribe /login y presiona Enter:",
+  claudeManualFallbackStep2: "Dentro de la sesión de Claude, escribe",
+  claudeCheckStatusBtn: "Verificar estado",
 };

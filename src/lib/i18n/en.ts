@@ -501,6 +501,10 @@ export const en = {
   claudeLoginError: "Login failed",
   claudeLoginConnectionFailed: "Connection to login process failed",
   claudeSettingsHint: "Authentication is stored locally. Re-run the login if the session expires.",
+  claudeManualFallbackTitle: "Manual login (terminal)",
+  claudeManualFallbackDesc: "Run this command in your terminal, then type /login and press Enter:",
+  claudeManualFallbackStep2: "Inside the Claude session, type",
+  claudeCheckStatusBtn: "Check status",
 } as const;
 
 export type TranslationKey = keyof typeof en;

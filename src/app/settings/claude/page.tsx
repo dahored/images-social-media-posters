@@ -212,18 +212,31 @@ export default function ClaudeSettingsPage() {
                 )}
 
                 {loginStep === "error" && (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
                       {loginError}
                     </p>
-                    {logs.length > 0 && (
-                      <div className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground font-mono max-h-24 overflow-y-auto space-y-0.5">
-                        {logs.map((l, i) => <div key={i}>{l}</div>)}
+
+                    {/* Manual fallback: terminal command */}
+                    <div className="rounded-lg border border-border p-3 space-y-2">
+                      <p className="text-xs font-medium">{t("claudeManualFallbackTitle")}</p>
+                      <p className="text-xs text-muted-foreground">{t("claudeManualFallbackDesc")}</p>
+                      <div className="rounded bg-muted px-3 py-2 font-mono text-xs select-all">
+                        docker compose exec -it app claude
                       </div>
-                    )}
-                    <Button onClick={startLogin} variant="outline" size="sm">
-                      {t("claudeRetryLogin")}
-                    </Button>
+                      <p className="text-xs text-muted-foreground">
+                        {t("claudeManualFallbackStep2")} <code className="bg-muted px-1 rounded">/login</code>
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button onClick={startLogin} variant="outline" size="sm">
+                        {t("claudeRetryLogin")}
+                      </Button>
+                      <Button onClick={checkStatus} variant="outline" size="sm">
+                        {t("claudeCheckStatusBtn")}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>

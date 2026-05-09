@@ -23,12 +23,16 @@ export async function GET() {
         } catch { /* stream closed */ }
       };
 
-      // BROWSER=echo makes claude print the OAuth URL to stdout instead of
-      // trying to open a browser (which fails in Docker/headless environments).
-      const child = spawn(claudePath, ["login"], {
+      // Launch claude in interactive mode (no args) then pipe /login as the
+      // first command. BROWSER=echo makes it print the OAuth URL to stdout
+      // instead of trying to open a browser (which fails in Docker).
+      const child = spawn(claudePath, [], {
         stdio: ["pipe", "pipe", "pipe"],
         env: { ...process.env, BROWSER: "echo" },
       });
+
+      // Wait briefly for the REPL to initialise before sending /login
+      setTimeout(() => { child.stdin?.write("/login\n"); }, 1500);
 
       const onOutput = (chunk: Buffer) => {
         const text = chunk.toString();
