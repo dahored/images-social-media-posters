@@ -18,6 +18,7 @@ export default function ClaudeSettingsPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const esRef = useRef<EventSource | null>(null);
+  const popupRef = useRef<Window | null>(null);
 
   const checkStatus = async () => {
     setStatus("checking");
@@ -43,6 +44,11 @@ export default function ClaudeSettingsPage() {
     setLoginError(null);
     setLogs([]);
 
+    // Open a blank popup NOW (synchronously during the click event) so the
+    // browser allows it. We'll navigate it to the OAuth URL once SSE delivers it.
+    popupRef.current?.close();
+    popupRef.current = window.open("about:blank", "claude-oauth", "width=520,height=680");
+
     const es = new EventSource("/api/claude/login");
     esRef.current = es;
 
@@ -56,10 +62,15 @@ export default function ClaudeSettingsPage() {
       if (data.type === "url" && data.url) {
         setLoginUrl(data.url);
         setLoginStep("has-url");
+        // Navigate the pre-opened popup to the OAuth URL
+        if (popupRef.current && !popupRef.current.closed) {
+          popupRef.current.location.href = data.url;
+        }
       }
       if (data.type === "done") {
         setLoginStep("done");
         setStatus("logged-in");
+        popupRef.current?.close();
         es.close();
       }
       if (data.type === "error") {
@@ -80,6 +91,7 @@ export default function ClaudeSettingsPage() {
 
   const cancelLogin = () => {
     esRef.current?.close();
+    popupRef.current?.close();
     setLoginStep("idle");
     setLoginUrl(null);
     setLoginError(null);
@@ -184,20 +196,20 @@ export default function ClaudeSettingsPage() {
 
                 {loginStep === "has-url" && loginUrl && (
                   <div className="space-y-3">
-                    <p className="text-sm text-muted-foreground">{t("claudeOpenUrlDesc")}</p>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                      <span>{t("claudeWaitingLogin")}</span>
+                    </div>
+                    {/* Fallback link in case popup was blocked */}
                     <a
                       href={loginUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors"
+                      className="flex items-center gap-1.5 text-xs text-accent underline"
                     >
-                      <ExternalLink className="h-4 w-4" />
+                      <ExternalLink className="h-3 w-3" />
                       {t("claudeOpenLoginPage")}
                     </a>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin shrink-0" />
-                      <span>{t("claudeWaitingLogin")}</span>
-                    </div>
                     <button onClick={cancelLogin} className="text-xs text-muted-foreground hover:text-foreground underline">
                       {t("cancel")}
                     </button>
