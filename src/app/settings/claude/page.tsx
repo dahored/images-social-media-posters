@@ -80,7 +80,7 @@ export default function ClaudeSettingsPage() {
       if (data.type === "needs-code" && data.sessionId) {
         setSessionId(data.sessionId);
         setLoginStep("needs-code");
-        popupRef.current?.close();
+        // Keep the popup open — the user needs to read the code from it
       }
       if (data.type === "done") {
         setLoginStep("done");
@@ -263,7 +263,7 @@ export default function ClaudeSettingsPage() {
                       <p className="text-sm font-medium mb-0.5">{t("claudePasteCodeTitle")}</p>
                       <p className="text-xs text-muted-foreground">{t("claudePasteCodeDesc")}</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-stretch">
                       <input
                         type="text"
                         value={codeInput}
@@ -277,7 +277,7 @@ export default function ClaudeSettingsPage() {
                       <Button
                         onClick={submitCode}
                         variant="accent"
-                        size="sm"
+                        className="shrink-0 self-stretch h-auto"
                         disabled={!codeInput.trim() || loginStep === "submitting-code"}
                       >
                         {loginStep === "submitting-code"
