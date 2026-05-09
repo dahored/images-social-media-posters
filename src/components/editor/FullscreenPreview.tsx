@@ -59,8 +59,8 @@ export function FullscreenPreview({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay data-oc-overlay className="fixed inset-0 z-50 bg-black/90" />
-        <Dialog.Content data-oc-fade-scale className="fixed inset-0 z-50 flex items-center justify-center p-8">
+        <Dialog.Overlay data-oc-overlay className="fixed inset-0 z-80 bg-black/90" />
+        <Dialog.Content data-oc-fade-scale className="fixed inset-0 z-80 flex items-center justify-center p-8">
           <Dialog.Close asChild>
             <button
               className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-10"
