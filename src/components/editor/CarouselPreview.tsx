@@ -4,6 +4,7 @@ import { useEffect, useRef, type CSSProperties } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SlideRenderer } from "./SlideRenderer";
+import { useI18n } from "@/lib/i18n/context";
 import type { Slide, AspectRatio } from "@/types/carousel";
 import type { LogoConfig, ColorSubstitution, FontSubstitution } from "@/lib/slide-html";
 
@@ -36,6 +37,7 @@ export function CarouselPreview({
   customBackground,
   accentOverride,
 }: CarouselPreviewProps) {
+  const { t } = useI18n();
   const slide = slides[activeIndex];
   const prevIndexRef = useRef(activeIndex);
   const direction = activeIndex >= prevIndexRef.current ? 12 : -12;
@@ -58,7 +60,7 @@ export function CarouselPreview({
           <div className="w-16 h-20 border-2 border-dashed border-muted-foreground/30 rounded-lg mx-auto mb-4 flex items-center justify-center">
             <span className="text-2xl opacity-30">+</span>
           </div>
-          <p className="text-sm font-medium">No slides yet</p>
+          <p className="text-sm font-medium">{t("noSlidesYet")}</p>
           <p className="text-xs mt-1 max-w-[200px]">
             Use the AI assistant to create your first {isPost ? "post" : "carousel slide"}
           </p>
@@ -87,7 +89,7 @@ export function CarouselPreview({
           onClick={() => onActiveChange(activeIndex - 1)}
           disabled={activeIndex <= 0}
           className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white/90 shadow-sm hover:bg-white h-9 w-9"
-          aria-label="Previous slide"
+          aria-label={t("previousSlide")}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -118,7 +120,7 @@ export function CarouselPreview({
           onClick={() => onActiveChange(activeIndex + 1)}
           disabled={activeIndex >= slides.length - 1}
           className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white/90 shadow-sm hover:bg-white h-9 w-9"
-          aria-label="Next slide"
+          aria-label={t("nextSlide")}
         >
           <ChevronRight className="h-4 w-4" />
         </Button>

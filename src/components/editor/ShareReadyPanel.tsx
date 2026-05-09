@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Copy, Check, Loader2, ArrowLeft, ExternalLink, Download } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 interface ShareImage {
   name: string;
@@ -26,6 +27,7 @@ export function ShareReadyPanel({
   target,
   onBack,
 }: ShareReadyPanelProps) {
+  const { t } = useI18n();
   const [images, setImages] = useState<ShareImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -139,14 +141,14 @@ export function ShareReadyPanel({
                 >
                   <Download className="h-7 w-7" />
                   <span className="text-xs font-medium">
-                    {images.length > 1 ? `Slide ${idx + 1}` : "Descargar"}
+                    {images.length > 1 ? `Slide ${idx + 1}` : t("download")}
                   </span>
                 </button>
               </div>
               {/* Copy — small icon, top-right corner */}
               <button
                 onClick={(e) => { e.stopPropagation(); copyImage(img, idx); }}
-                title="Copiar al portapapeles"
+                title={t("copyToClipboard")}
                 className="absolute top-1.5 right-1.5 h-7 w-7 rounded-md flex items-center justify-center bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
               >
                 {copiedImg === idx ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
@@ -165,7 +167,7 @@ export function ShareReadyPanel({
           <button
             onClick={copyText}
             className="absolute top-2 right-2 h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            title="Copiar texto"
+            title={t("copyText")}
           >
             {copiedText ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
           </button>
@@ -174,8 +176,8 @@ export function ShareReadyPanel({
 
       <p className="text-xs text-muted-foreground text-center">
         {target.id === "instagram"
-          ? `Descarga cada imagen, ábrela en ${target.label} y súbela con el selector de archivos`
-          : `Copia cada imagen, ábrela en ${target.label} y pégala en el compositor`}
+          ? t("shareDownloadInstructions").replace("{label}", target.label)
+          : t("shareCopyInstructions").replace("{label}", target.label)}
       </p>
     </div>
   );

@@ -23,9 +23,19 @@ const SOCIAL_TARGETS = [
 
 type SocialTargetId = typeof SOCIAL_TARGETS[number]["id"];
 
-export function PublishButton({ carouselId, carouselName, caption, hashtags, slideCount, isPost = false }: PublishButtonProps) {
+interface PublishDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  carouselId: string;
+  carouselName?: string;
+  caption?: string;
+  hashtags?: string[];
+  isPost?: boolean;
+}
+
+/** Standalone publish dialog — can be opened from anywhere (editor, calendar, etc.) */
+export function PublishDialog({ open, onOpenChange, carouselId, carouselName, caption, hashtags, isPost = false }: PublishDialogProps) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
   const [telegramConfigured, setTelegramConfigured] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [done, setDone] = useState(false);
@@ -44,13 +54,12 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
       .catch(() => {});
   }, [open]);
 
-  // Reset share panel when dialog closes
   useEffect(() => {
-    if (!open) setShareTarget(null);
+    if (!open) { setShareTarget(null); setError(null); setDone(false); setShared(false); }
   }, [open]);
 
   const handleDownload = async () => {
-    setOpen(false);
+    onOpenChange(false);
     const response = await fetch(`/api/carousels/${carouselId}/export`, { method: "POST" });
     if (!response.ok) return;
     const blob = await response.blob();
@@ -78,7 +87,7 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
         const text = parts.length > 0 ? parts.join("\n\n") : undefined;
         await navigator.share({ files, title: carouselName, text });
         setShared(true);
-        setTimeout(() => { setShared(false); setOpen(false); }, 1500);
+        setTimeout(() => { setShared(false); onOpenChange(false); }, 1500);
       } else {
         handleDownload();
       }
@@ -102,7 +111,7 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
       const data = await res.json();
       if (res.ok) {
         setDone(true);
-        setTimeout(() => { setDone(false); setOpen(false); }, 2000);
+        setTimeout(() => { setDone(false); onOpenChange(false); }, 2000);
       } else {
         setError(data.error || "Publish failed");
       }
@@ -116,20 +125,10 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
   const activeTarget = SOCIAL_TARGETS.find((t) => t.id === shareTarget) ?? null;
 
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
-      <Dialog.Trigger asChild>
-        <Button variant="outline" size="sm" disabled={slideCount === 0} className="gap-1.5">
-          <Send className="h-3.5 w-3.5" />
-          {t("publish")}
-          <ChevronDown className="h-3 w-3 opacity-50" />
-        </Button>
-      </Dialog.Trigger>
-
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay data-oc-overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
-        <Dialog.Content data-oc-dialog className="fixed z-50 w-full max-w-sm rounded-xl bg-surface border border-border p-5 shadow-2xl max-h-[min(600px,85vh)] overflow-y-auto" style={{ left: "50%", top: "50%" }}>
-
-          {/* Share-ready panel (Facebook / Instagram) */}
+        <Dialog.Overlay data-oc-overlay className="fixed inset-0 z-60 bg-black/50 backdrop-blur-sm" />
+        <Dialog.Content data-oc-dialog className="fixed z-60 w-full max-w-sm rounded-xl bg-surface border border-border p-5 shadow-2xl max-h-[min(600px,85vh)] overflow-y-auto" style={{ left: "50%", top: "50%" }}>
           {activeTarget ? (
             <ShareReadyPanel
               carouselId={carouselId}
@@ -151,11 +150,7 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
               </div>
 
               <div className="space-y-2">
-                {/* Download */}
-                <button
-                  onClick={handleDownload}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors cursor-pointer"
-                >
+                <button onClick={handleDownload} className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors cursor-pointer">
                   <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
                     <Download className="h-4 w-4" />
                   </div>
@@ -165,13 +160,8 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
                   </div>
                 </button>
 
-                {/* Web Share API — mobile / macOS Safari */}
                 {webShareSupported && (
-                  <button
-                    onClick={handleShare}
-                    disabled={sharing || shared}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors disabled:opacity-60 cursor-pointer"
-                  >
+                  <button onClick={handleShare} disabled={sharing || shared} className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors disabled:opacity-60 cursor-pointer">
                     <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center">
                       {sharing ? <Loader2 className="h-4 w-4 text-accent animate-spin" /> : shared ? <Check className="h-4 w-4 text-green-500" /> : <Share2 className="h-4 w-4 text-accent" />}
                     </div>
@@ -182,34 +172,22 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
                   </button>
                 )}
 
-                {/* Facebook / Instagram — show share panel */}
                 {SOCIAL_TARGETS.map((target) => (
-                  <button
-                    key={target.id}
-                    onClick={() => setShareTarget(target.id)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors cursor-pointer"
-                  >
-                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground select-none">
-                      {target.icon}
-                    </div>
+                  <button key={target.id} onClick={() => setShareTarget(target.id)} className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors cursor-pointer">
+                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground select-none">{target.icon}</div>
                     <div>
                       <div className="text-sm font-medium">{target.label}</div>
                       <div className="text-xs text-muted-foreground">
                         {target.id === "instagram"
-                          ? isPost ? "Descarga la imagen y el texto" : "Descarga cada slide y el texto"
-                          : isPost ? "Copia la imagen y el texto" : "Copia cada slide y el texto"}
+                          ? isPost ? t("shareInstagramPostDesc") : t("shareInstagramCarouselDesc")
+                          : isPost ? t("shareFacebookPostDesc") : t("shareFacebookCarouselDesc")}
                       </div>
                     </div>
                   </button>
                 ))}
 
-                {/* Telegram */}
                 {telegramConfigured ? (
-                  <button
-                    onClick={handleTelegram}
-                    disabled={publishing || done}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors disabled:opacity-60"
-                  >
+                  <button onClick={handleTelegram} disabled={publishing || done} className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors disabled:opacity-60">
                     <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center">
                       {publishing ? <Loader2 className="h-4 w-4 text-accent animate-spin" /> : done ? <Check className="h-4 w-4 text-green-500" /> : <Send className="h-4 w-4 text-accent" />}
                     </div>
@@ -228,13 +206,35 @@ export function PublishButton({ carouselId, carouselName, caption, hashtags, sli
                 )}
               </div>
 
-              {error && (
-                <p className="mt-3 text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
-              )}
+              {error && <p className="mt-3 text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>}
             </>
           )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+export function PublishButton({ carouselId, carouselName, caption, hashtags, slideCount, isPost = false }: PublishButtonProps) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Button variant="outline" size="sm" disabled={slideCount === 0} className="gap-1.5" onClick={() => setOpen(true)}>
+        <Send className="h-3.5 w-3.5" />
+        {t("publish")}
+        <ChevronDown className="h-3 w-3 opacity-50" />
+      </Button>
+      <PublishDialog
+        open={open}
+        onOpenChange={setOpen}
+        carouselId={carouselId}
+        carouselName={carouselName}
+        caption={caption}
+        hashtags={hashtags}
+        isPost={isPost}
+      />
+    </>
   );
 }

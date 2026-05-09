@@ -5,6 +5,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SlideRenderer } from "./SlideRenderer";
+import { useI18n } from "@/lib/i18n/context";
 import type { Slide, AspectRatio } from "@/types/carousel";
 import type { LogoConfig, ColorSubstitution, FontSubstitution } from "@/lib/slide-html";
 
@@ -35,6 +36,7 @@ export function FullscreenPreview({
   customBackground,
   accentOverride,
 }: FullscreenPreviewProps) {
+  const { t } = useI18n();
   const slide = slides[activeIndex];
 
   const handleKeyDown = useCallback(
@@ -75,7 +77,7 @@ export function FullscreenPreview({
             onClick={() => onActiveChange(activeIndex - 1)}
             disabled={activeIndex <= 0}
             className="absolute left-4 z-10 text-white bg-white/10 hover:bg-white/20 disabled:opacity-30 h-12 w-12"
-            aria-label="Previous slide"
+            aria-label={t("previousSlide")}
           >
             <ChevronLeft className="h-6 w-6" />
           </Button>
@@ -101,7 +103,7 @@ export function FullscreenPreview({
             onClick={() => onActiveChange(activeIndex + 1)}
             disabled={activeIndex >= slides.length - 1}
             className="absolute right-4 z-10 text-white bg-white/10 hover:bg-white/20 disabled:opacity-30 h-12 w-12"
-            aria-label="Next slide"
+            aria-label={t("nextSlide")}
           >
             <ChevronRight className="h-6 w-6" />
           </Button>

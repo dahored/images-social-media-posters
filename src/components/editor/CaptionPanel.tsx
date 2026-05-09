@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Copy, Check, ChevronDown, ChevronUp, Hash, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n/context";
 
 interface CaptionPanelProps {
   caption?: string;
@@ -10,6 +11,7 @@ interface CaptionPanelProps {
 }
 
 export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedHashtags, setCopiedHashtags] = useState(false);
@@ -37,7 +39,7 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
       >
         <span className="flex items-center gap-1.5">
           <MessageSquare className="h-3 w-3" />
-          Caption & Hashtags
+          {t("captionAndHashtagsLabel")}
         </span>
         {expanded ? (
           <ChevronDown className="h-3 w-3" />
@@ -52,7 +54,7 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-medium text-muted-foreground">
-                  Caption
+                  {t("captionSectionLabel")}
                 </span>
                 <Button
                   variant="ghost"
@@ -65,7 +67,7 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
                   ) : (
                     <Copy className="h-2.5 w-2.5" />
                   )}
-                  {copiedCaption ? "Copied" : "Copy"}
+                  {copiedCaption ? t("copied") : t("copy")}
                 </Button>
               </div>
               <p className="text-xs text-foreground bg-muted rounded-md p-2 whitespace-pre-wrap">
@@ -79,7 +81,7 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
                   <Hash className="h-2.5 w-2.5" />
-                  Hashtags ({hashtags.length})
+                  {t("hashtagsSectionLabel", { n: String(hashtags.length) })}
                 </span>
                 <Button
                   variant="ghost"
@@ -94,7 +96,7 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
                   ) : (
                     <Copy className="h-2.5 w-2.5" />
                   )}
-                  {copiedHashtags ? "Copied" : "Copy All"}
+                  {copiedHashtags ? t("copied") : t("copyAll")}
                 </Button>
               </div>
               <div className="flex flex-wrap gap-1">

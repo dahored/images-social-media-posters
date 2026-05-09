@@ -42,7 +42,12 @@ export function TemplateGallery() {
 
   const handleUse = useCallback(
     async (templateId: string) => {
-      const res = await fetch(`/api/templates/${templateId}/use`, { method: "POST" });
+      const accountId = localStorage.getItem("activeAccountId") ?? undefined;
+      const res = await fetch(`/api/templates/${templateId}/use`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId }),
+      });
       if (res.ok) {
         const carousel = await res.json();
         router.push(`/carousel/${carousel.id}`);

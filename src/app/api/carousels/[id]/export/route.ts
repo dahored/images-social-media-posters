@@ -79,8 +79,11 @@ export async function POST(
       // Per-slide theme override wins over carousel theme
       const slideTheme: "dark" | "light" = slide.styleOverride?.theme ?? activeTheme;
 
-      // Per-slide logo: explicit path > theme-based variant; per-slide position/height override
-      const slideLogoPath = slide.styleOverride?.logoPath
+      // Per-slide logo: per-theme explicit path > theme-based variant; per-slide position/height override
+      const slideLogoOverride = slideTheme === "dark"
+        ? slide.styleOverride?.logoPath
+        : slide.styleOverride?.logoPathLight;
+      const slideLogoPath = slideLogoOverride
         ?? (branding
           ? (slideTheme === "dark"
             ? (branding.logoPathLight ?? branding.logoPath ?? null)

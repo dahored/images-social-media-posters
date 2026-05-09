@@ -6,6 +6,7 @@ import { Image, X } from "lucide-react";
 import { Button } from "./button";
 import { Input } from "./input";
 import { AspectRatioSelector } from "@/components/editor/AspectRatioSelector";
+import { useI18n } from "@/lib/i18n/context";
 import type { AspectRatio } from "@/types/carousel";
 
 interface CreatePostDialogProps {
@@ -19,6 +20,7 @@ export function CreatePostDialog({
   onOpenChange,
   onCreate,
 }: CreatePostDialogProps) {
+  const { t } = useI18n();
   const [name, setName] = useState("");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("4:5");
 
@@ -42,13 +44,13 @@ export function CreatePostDialog({
                 <Image className="h-4 w-4 text-accent" />
               </div>
               <Dialog.Title className="text-base font-semibold">
-                New Post
+                {t("newPostDialogTitle")}
               </Dialog.Title>
             </div>
             <Dialog.Close asChild>
               <button
                 className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
-                aria-label="Close"
+                aria-label={t("close")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -58,12 +60,12 @@ export function CreatePostDialog({
           <div className="space-y-4">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                Post Title
+                {t("postTitleLabel")}
               </label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Product launch announcement"
+                placeholder={t("postTitleInputPlaceholder")}
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleCreate();
@@ -73,7 +75,7 @@ export function CreatePostDialog({
 
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                Aspect Ratio
+                {t("aspectRatio")}
               </label>
               <AspectRatioSelector
                 value={aspectRatio}
@@ -85,7 +87,7 @@ export function CreatePostDialog({
           <div className="flex justify-end gap-2 mt-6">
             <Dialog.Close asChild>
               <Button variant="outline" size="sm">
-                Cancel
+                {t("cancel")}
               </Button>
             </Dialog.Close>
             <Button
@@ -94,7 +96,7 @@ export function CreatePostDialog({
               onClick={handleCreate}
               disabled={!name.trim()}
             >
-              Create Post
+              {t("createPost")}
             </Button>
           </div>
         </Dialog.Content>

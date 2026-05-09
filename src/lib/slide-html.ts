@@ -173,6 +173,8 @@ export function wrapSlideHtml(
     customBackground?: string;
     /** Override accent color for elements with class="slide-accent" */
     accentOverride?: string;
+    /** Origin to inject as <base href> so relative URLs (e.g. /uploads/...) resolve correctly inside iframes loaded via blob: or about:blank. */
+    baseHref?: string;
   }
 ): string {
   const { width, height } = DIMENSIONS[aspectRatio];
@@ -297,11 +299,14 @@ export function wrapSlideHtml(
     );
   }
 
+  const baseTag = options?.baseHref ? `<base href="${options.baseHref}">` : "";
+
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=${width}, initial-scale=1">
+  ${baseTag}
   ${fontBlock}
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
