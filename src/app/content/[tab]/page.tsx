@@ -252,7 +252,7 @@ export default function ContentPage() {
           ) : activeTab === "bulk" ? (
             <BulkPanel />
           ) : activeTab === "my-posts-grid" ? (
-            <MyPostsGridTab carousels={carousels} loading={loading} reloadKey={reloadKey} getSlideRendererProps={getSlideRendererProps} />
+            <MyPostsGridTab carousels={carousels} loading={loading} reloadKey={reloadKey} getSlideRendererProps={getSlideRendererProps} onCarouselsDeleted={(ids) => setCarousels((prev) => prev.filter((c) => !ids.includes(c.id)))} />
           ) : loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[1, 2, 3].map((i) => (

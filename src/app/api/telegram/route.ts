@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getConfig, updateConfig } from "@/lib/config";
-import { isTelegramConfigured, testConnection } from "@/lib/telegram";
+import { isTelegramConfigured, testConnection, sendTextMessage, getDefaultChatId } from "@/lib/telegram";
+import { getAccount } from "@/lib/accounts";
 
 export async function GET() {
   const config = await getConfig();
@@ -44,5 +45,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Invalid request" }, { status: 400 });
     }
   }
+  if (searchParams.get("action") === "message") {
+    try {
+      const body = await request.json() as { text: string; accountId?: string; chatId?: string };
+      let chatId = body.chatId;
+      if (!chatId && body.accountId) {
+        const account = await getAccount(body.accountId);
+        chatId = account?.telegramChatId ?? undefined;
+      }
+      if (!chatId) chatId = await getDefaultChatId() ?? undefined;
+      if (!chatId) return NextResponse.json({ error: "No chat ID configured" }, { status: 400 });
+      const result = await sendTextMessage(chatId, body.text);
+      return NextResponse.json(result);
+    } catch {
+      return NextResponse.json({ ok: false, error: "Invalid request" }, { status: 400 });
+    }
+  }
+
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }

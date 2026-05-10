@@ -21,7 +21,13 @@ async function getBrowser(): Promise<Browser> {
   if (!browser || !browser.isConnected()) {
     browser = await puppeteer.launch({
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"],
+      protocolTimeout: 180000,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-gpu",
+        "--font-render-hinting=none",
+      ],
     });
     exportCount = 0;
   }
@@ -60,6 +66,38 @@ async function inlineImages(html: string): Promise<string> {
   return result;
 }
 
+/**
+ * Fetch external CDN stylesheets (Font Awesome, Bootstrap Icons, etc.) and replace
+ * <link rel="stylesheet"> tags with inline <style> blocks containing the CSS text.
+ * Font binary files (woff2, etc.) are kept as external URLs — Puppeteer fetches them
+ * via network and document.fonts.ready waits for them before the screenshot.
+ *
+ * Only the CSS text is inlined (typically 50-150KB). Inlining font binaries as base64
+ * produces 5-20MB HTML documents that cause Chromium to hang and timeout.
+ */
+const cssCache = new Map<string, string>();
+async function inlineExternalCss(html: string): Promise<string> {
+  const linkRegex = /<link\b[^>]*\brel=["']stylesheet["'][^>]*\bhref=["'](https?:\/\/[^"']+)["'][^>]*\/?>/gi;
+  const matches = [...html.matchAll(linkRegex)];
+  let result = html;
+  for (const match of matches) {
+    const [fullTag, href] = match;
+    try {
+      let css = cssCache.get(href) ?? null;
+      if (!css) {
+        const res = await fetch(href, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) continue;
+        css = await res.text();
+        cssCache.set(href, css);
+      }
+      result = result.replace(fullTag, `<style>${css}</style>`);
+    } catch {
+      // Keep original <link> — Puppeteer will attempt to fetch it directly
+    }
+  }
+  return result;
+}
+
 async function inlineImagePath(imgPath: string): Promise<string> {
   try {
     const uploadDir = path.resolve(process.cwd(), "public");
@@ -91,12 +129,15 @@ export async function exportSlide(
   // Apply style overrides first so font extraction uses the final font names
   const processedHtml = preprocessSlideHtml(slide.html, { colorSubstitution, fontSubstitution });
 
-  // Get inlined font CSS (after substitution so new font names are included)
+  // Get inlined font CSS (after substitution so new font names are included).
+  // Always include Noto Sans Symbols 2 — covers Dingbats, special symbols, and other
+  // Unicode ranges that generic fonts (serif, sans-serif) miss in headless Chromium.
   const fontFamilies = extractFontFamilies(processedHtml);
+  if (!fontFamilies.includes("Noto Sans Symbols 2")) fontFamilies.push("Noto Sans Symbols 2");
   const inlinedFontCss = await getInlinedFontCSS(fontFamilies);
 
-  // Inline images (including logo path if present)
-  const inlinedHtml = await inlineImages(processedHtml);
+  // Inline images and external CDN stylesheets (icon fonts, etc.)
+  const inlinedHtml = await inlineExternalCss(await inlineImages(processedHtml));
   const inlinedLogoConfig = logoConfig && logoConfig.path !== "none"
     ? { ...logoConfig, path: await inlineImagePath(logoConfig.path) }
     : logoConfig;
@@ -118,24 +159,36 @@ export async function exportSlide(
 
   try {
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
-    await page.setContent(fullHtml, { waitUntil: "domcontentloaded", timeout: 15000 });
+    await page.setContent(fullHtml, { waitUntil: "load", timeout: 30000 });
 
-    // Wait for fonts to be ready
-    await page
-      .waitForFunction(
-        () =>
-          document.fonts.ready.then(() =>
-            [...document.fonts].every((f) => f.status === "loaded")
-          ),
-        { timeout: 10000 }
-      )
-      .catch(() => {
-        // Font loading timeout — proceed with whatever loaded
+    // Patch generic font-family values (serif, sans-serif) in inline styles to include
+    // system symbol/dingbat fonts before the generic family. This ensures characters like
+    // U+275D (❝), Dingbats, and other special glyphs render correctly in headless Chromium,
+    // which has a weaker font fallback chain than the full browser.
+    await page.evaluate(() => {
+      const SYM = '"Noto Sans Symbols 2", "Apple Symbols", "Segoe UI Symbol", "Noto Sans Symbols", "DejaVu Sans"';
+      document.querySelectorAll<HTMLElement>("[style]").forEach((el) => {
+        const ff = el.style.fontFamily;
+        if (!ff) return;
+        if (/\b(serif|sans-serif)\b/i.test(ff) && !ff.includes("Apple Symbols")) {
+          el.style.fontFamily = ff.replace(/\b(serif|sans-serif)\b/gi, `${SYM}, $1`);
+        }
       });
+    }).catch(() => {});
+
+    // Wait for fonts to be ready after DOM patch (includes CDN icon font files).
+    await page.waitForFunction(
+      () => document.fonts.ready.then(() => true),
+      { timeout: 15000 }
+    ).catch(() => {});
+
+    // Settle time for glyph painting
+    await new Promise((r) => setTimeout(r, 400));
 
     const screenshotBuffer = await page.screenshot({
       type: "png",
       clip: { x: 0, y: 0, width, height },
+      timeout: 60000,
     });
 
     exportCount++;

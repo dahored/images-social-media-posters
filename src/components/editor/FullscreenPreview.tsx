@@ -8,6 +8,7 @@ import { SlideRenderer } from "./SlideRenderer";
 import { useI18n } from "@/lib/i18n/context";
 import type { Slide, AspectRatio } from "@/types/carousel";
 import type { LogoConfig, ColorSubstitution, FontSubstitution } from "@/lib/slide-html";
+import type { SlideRendererProps } from "@/lib/slide-renderer-props";
 
 interface FullscreenPreviewProps {
   open: boolean;
@@ -16,6 +17,8 @@ interface FullscreenPreviewProps {
   aspectRatio: AspectRatio;
   activeIndex: number;
   onActiveChange: (index: number) => void;
+  /** Per-slide branding props — when provided, overrides the static logoConfig/colorSubstitution etc. */
+  perSlideProps?: SlideRendererProps[];
   logoConfig?: LogoConfig;
   colorSubstitution?: ColorSubstitution;
   fontSubstitution?: FontSubstitution;
@@ -30,6 +33,7 @@ export function FullscreenPreview({
   aspectRatio,
   activeIndex,
   onActiveChange,
+  perSlideProps,
   logoConfig,
   colorSubstitution,
   fontSubstitution,
@@ -38,6 +42,12 @@ export function FullscreenPreview({
 }: FullscreenPreviewProps) {
   const { t } = useI18n();
   const slide = slides[activeIndex];
+  const activeSlideProps = perSlideProps?.[activeIndex];
+  const resolvedLogoConfig      = activeSlideProps?.logoConfig      ?? logoConfig;
+  const resolvedColorSub        = activeSlideProps?.colorSubstitution ?? colorSubstitution;
+  const resolvedFontSub         = activeSlideProps?.fontSubstitution  ?? fontSubstitution;
+  const resolvedCustomBg        = activeSlideProps?.customBackground  ?? customBackground;
+  const resolvedAccentOverride  = activeSlideProps?.accentOverride    ?? accentOverride;
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -88,11 +98,11 @@ export function FullscreenPreview({
               html={slide.html}
               aspectRatio={aspectRatio}
               style={{ width: "100%", height: "100%", maxWidth: 800 }}
-              logoConfig={logoConfig}
-              colorSubstitution={colorSubstitution}
-              fontSubstitution={fontSubstitution}
-              customBackground={customBackground}
-              accentOverride={accentOverride}
+              logoConfig={resolvedLogoConfig}
+              colorSubstitution={resolvedColorSub}
+              fontSubstitution={resolvedFontSub}
+              customBackground={resolvedCustomBg}
+              accentOverride={resolvedAccentOverride}
             />
           )}
 

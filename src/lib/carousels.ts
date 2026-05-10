@@ -117,12 +117,23 @@ export async function deleteCarousel(id: string): Promise<boolean> {
   return true;
 }
 
+export async function deleteCarousels(ids: string[]): Promise<number> {
+  const set = new Set(ids);
+  const data = await load();
+  const before = data.carousels.length;
+  data.carousels = data.carousels.filter((c) => !set.has(c.id));
+  const deleted = before - data.carousels.length;
+  if (deleted > 0) await save(data);
+  return deleted;
+}
+
 // --- Slide operations ---
 
 export async function addSlide(
   carouselId: string,
   html: string,
-  notes = ""
+  notes = "",
+  styleOverride?: Slide["styleOverride"]
 ): Promise<Slide | null> {
   const data = await load();
   const carousel = data.carousels.find((c) => c.id === carouselId);
@@ -136,6 +147,7 @@ export async function addSlide(
     previousVersions: [],
     order: carousel.slides.length,
     notes,
+    ...(styleOverride ? { styleOverride } : {}),
   };
   carousel.slides.push(slide);
   carousel.updatedAt = now();

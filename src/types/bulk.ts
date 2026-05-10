@@ -28,7 +28,7 @@ export interface BulkCellPlan {
   /** Slot schema of the template's first slide (for posts) or all slides (for carousels). */
   slidesSchema: Array<{
     slideId: string;
-    slots: Array<{ id: string; role: SlotRole; currentText: string }>;
+    slots: Array<{ id: string; role: SlotRole; currentText: string; hasAccent: boolean }>;
   }>;
   /** Content fragment assigned to this cell — either a single bullet, a category, or free text. */
   contentFragment: {

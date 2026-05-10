@@ -1,4 +1,4 @@
-import type { AspectRatio, Slide, ContentKind } from "./carousel";
+import type { AspectRatio, Slide, ContentKind, CarouselBrandingOverride } from "./carousel";
 
 export type TemplateScope = "global" | "brand" | "account";
 
@@ -13,6 +13,7 @@ export interface Template {
   scope?: TemplateScope;
   brandId?: string;
   accountId?: string;
+  brandingOverride?: CarouselBrandingOverride;
   createdAt: string;
 }
 

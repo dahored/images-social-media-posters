@@ -9,8 +9,11 @@ import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/context";
 import type { Grid, GridItem, GridSize } from "@/types/grid";
 import type { Template } from "@/types/template";
+import type { Carousel, Slide } from "@/types/carousel";
 import { SlideRenderer } from "@/components/editor/SlideRenderer";
 import { FullscreenPreview } from "@/components/editor/FullscreenPreview";
+import { computeSlideRendererProps } from "@/lib/slide-renderer-props";
+import { useBranding } from "@/lib/hooks/useBranding";
 
 interface Props {
   open: boolean;
@@ -24,6 +27,7 @@ const SIZE_OPTIONS: GridSize[] = [3, 6, 9];
 
 export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSaved }: Props) {
   const { t } = useI18n();
+  const branding = useBranding();
   const [name, setName] = useState("");
   const [size, setSize] = useState<GridSize>(6);
   const [items, setItems] = useState<GridItem[]>([]);
@@ -140,7 +144,12 @@ export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSa
                     >
                       {tpl && tpl.slides[0] ? (
                         <>
-                          <SlideRenderer html={tpl.slides[0].html} aspectRatio={tpl.aspectRatio} className="w-full h-full" />
+                          <SlideRenderer
+                            html={tpl.slides[0].html}
+                            aspectRatio={tpl.aspectRatio}
+                            className="w-full h-full"
+                            {...(branding ? computeSlideRendererProps(branding, { brandingOverride: tpl.brandingOverride } as unknown as Carousel, tpl.slides[0] as unknown as Slide) : {})}
+                          />
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                             <span className="text-[10px] text-white font-medium px-2 py-1 rounded bg-black/60">{t("change")}</span>
                           </div>
@@ -255,7 +264,12 @@ export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSa
                         onClick={() => { setPreviewTpl(tpl); setPreviewSlide(activeIdx); }}
                       >
                         {total > 0 ? (
-                          <SlideRenderer html={tpl.slides[activeIdx].html} aspectRatio={tpl.aspectRatio} className="w-full h-full" />
+                          <SlideRenderer
+                            html={tpl.slides[activeIdx].html}
+                            aspectRatio={tpl.aspectRatio}
+                            className="w-full h-full"
+                            {...(branding ? computeSlideRendererProps(branding, { brandingOverride: tpl.brandingOverride } as unknown as Carousel, tpl.slides[activeIdx] as unknown as Slide) : {})}
+                          />
                         ) : (
                           <div className="h-full flex items-center justify-center text-muted-foreground/30 text-xs">{t("empty")}</div>
                         )}
@@ -284,6 +298,11 @@ export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSa
                       </div>
                       {/* Info + Select */}
                       <div className="p-2.5">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${tpl.kind === "post" ? "bg-blue-500/10 text-blue-600" : "bg-accent/10 text-accent"}`}>
+                            {tpl.kind === "post" ? <><ImageIcon className="h-2.5 w-2.5" />{t("post")}</> : <><SlidersHorizontal className="h-2.5 w-2.5" />{t("carousel")}</>}
+                          </span>
+                        </div>
                         <p className="text-xs font-semibold truncate">{tpl.name}</p>
                         <p className="text-[10px] text-muted-foreground">{total} {total !== 1 ? t("slides") : t("slide")} · {tpl.aspectRatio}</p>
                         <Button variant="accent" size="sm" className="w-full mt-2 text-xs h-7" onClick={() => pickerOpen !== null && setItemTemplate(pickerOpen, tpl.id)}>
@@ -310,6 +329,9 @@ export function GridBuilderDialog({ open, onOpenChange, templates, editing, onSa
         aspectRatio={previewTpl.aspectRatio}
         activeIndex={previewSlide}
         onActiveChange={setPreviewSlide}
+        perSlideProps={branding
+          ? previewTpl.slides.map((s) => computeSlideRendererProps(branding, { brandingOverride: previewTpl.brandingOverride } as unknown as Carousel, s as unknown as Slide))
+          : undefined}
       />
     )}
     </>

@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Layers, SlidersHorizontal, Image, LayoutGrid, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Layers, LayoutGrid, Trash2 } from "lucide-react";
 import { SlideRenderer } from "@/components/editor/SlideRenderer";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useI18n } from "@/lib/i18n/context";
 import type { Carousel } from "@/types/carousel";
 import type { Grid } from "@/types/grid";
@@ -15,16 +15,20 @@ interface Props {
   loading: boolean;
   reloadKey: number;
   getSlideRendererProps: (carousel: Carousel) => SlideRendererProps | {};
+  onCarouselsDeleted?: (ids: string[]) => void;
 }
 
-export function MyPostsGridTab({ carousels, loading, reloadKey, getSlideRendererProps }: Props) {
+export function MyPostsGridTab({ carousels, loading, reloadKey, getSlideRendererProps, onCarouselsDeleted }: Props) {
   const router = useRouter();
   const { t } = useI18n();
   const [grids, setGrids] = useState<Grid[]>([]);
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean; title: string; description: string; onConfirm: () => void;
+  }>({ open: false, title: "", description: "", onConfirm: () => {} });
 
   const fetchGrids = useCallback(() => {
-    const accountId = localStorage.getItem("activeAccountId");
-    const url = accountId ? `/api/grids?accountId=${accountId}` : "/api/grids";
+    const aid = localStorage.getItem("activeAccountId");
+    const url = aid ? `/api/grids?accountId=${aid}` : "/api/grids";
     fetch(url)
       .then((r) => r.json())
       .then((d) => setGrids(d.grids || []))
@@ -39,11 +43,8 @@ export function MyPostsGridTab({ carousels, loading, reloadKey, getSlideRenderer
   }, [fetchGrids]);
 
   const gridById = new Map(grids.map((g) => [g.id, g]));
-
-  // Only carousels generated via Masivo
   const bulkCarousels = carousels.filter((c) => !!c.sourceGridId);
 
-  // Group by sourceGridId, sorted newest batch first
   const groups: { grid: Grid | null; gridId: string; items: Carousel[] }[] = [];
   const seen = new Map<string, number>();
   const sorted = [...bulkCarousels].sort(
@@ -58,11 +59,28 @@ export function MyPostsGridTab({ carousels, loading, reloadKey, getSlideRenderer
     groups[seen.get(gid)!].items.push(c);
   }
 
+  const handleDeleteGroup = (e: React.MouseEvent, _gridId: string, gridName: string, items: Carousel[]) => {
+    e.stopPropagation();
+    setConfirmState({
+      open: true,
+      title: `¿Eliminar "${gridName}"?`,
+      description: `Se eliminarán ${items.length} ${items.length === 1 ? "publicación" : "publicaciones"} generadas. Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        await fetch("/api/carousels", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: items.map((c) => c.id) }),
+        });
+        onCarouselsDeleted?.(items.map((c) => c.id));
+      },
+    });
+  };
+
   if (loading) {
     return (
-      <div className="grid grid-cols-3 gap-1">
-        {Array.from({ length: 9 }).map((_, i) => (
-          <div key={i} className="aspect-square bg-muted animate-pulse rounded-sm" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {[1, 2, 3].map((_, i) => (
+          <div key={i} className="h-56 rounded-xl bg-muted animate-pulse" />
         ))}
       </div>
     );
@@ -81,72 +99,73 @@ export function MyPostsGridTab({ carousels, loading, reloadKey, getSlideRenderer
   }
 
   return (
-    <div className="space-y-10">
-      {groups.map(({ grid, gridId, items }) => (
-        <div key={gridId}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold truncate">{grid?.name ?? gridId}</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {items.length} {items.length === 1 ? t("post") : t("posts")}
+    <>
+      <ConfirmDialog
+        open={confirmState.open}
+        onOpenChange={(open) => setConfirmState((s) => ({ ...s, open }))}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={t("delete")}
+        variant="destructive"
+        onConfirm={confirmState.onConfirm}
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {groups.map(({ grid, gridId, items }) => {
+          const preview = items.slice(0, 9);
+          const cols = 3;
+          const rows = Math.min(3, Math.ceil(Math.max(preview.length, 1) / cols));
+          const slots = cols * rows;
+          const gridName = grid?.name ?? gridId;
+          return (
+            <div
+              key={gridId}
+              className="relative rounded-xl border border-border bg-surface p-4 hover:border-accent hover:shadow-md transition-all group cursor-pointer"
+              onClick={() => router.push(`/content/my-posts-grid/${gridId}`)}
+            >
+              {/* Delete button */}
+              <button
+                onClick={(e) => handleDeleteGroup(e, gridId, gridName, items)}
+                className="absolute top-3 right-3 h-7 w-7 rounded-lg flex items-center justify-center bg-white border border-border hover:bg-destructive hover:text-white hover:border-destructive opacity-0 group-hover:opacity-100 transition-all z-10"
+                aria-label="Eliminar"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+
+              {/* Mini grid preview */}
+              <div
+                className="rounded-lg overflow-hidden mb-3 grid gap-0.5 bg-muted"
+                style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
+              >
+                {Array.from({ length: slots }).map((_, i) => {
+                  const carousel = preview[i];
+                  return (
+                    <div key={i} className="aspect-square bg-muted/50 overflow-hidden">
+                      {carousel?.slides[0] ? (
+                        <SlideRenderer
+                          key={`${carousel.id}-${reloadKey}`}
+                          html={carousel.slides[0].html}
+                          aspectRatio={carousel.aspectRatio}
+                          className="w-full h-full"
+                          {...getSlideRendererProps(carousel)}
+                        />
+                      ) : carousel ? (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Layers className="h-4 w-4 text-muted-foreground/30" />
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+              <h3 className="font-semibold text-sm truncate pr-6">{gridName}</h3>
+              <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+                {items.length} {t(items.length === 1 ? "post" : "posts")}
               </p>
             </div>
-            <div className="flex-1 h-px bg-border" />
-            <button
-              onClick={() => {
-                const accountId = localStorage.getItem("activeAccountId") ?? "";
-                window.open(`/feed-preview?accountId=${accountId}&gridId=${gridId}`, "_blank");
-              }}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-accent transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              {t("viewAll")}
-            </button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-1">
-            {items.map((carousel) => (
-              <button
-                key={carousel.id}
-                onClick={() => router.push(`/carousel/${carousel.id}`)}
-                className="relative aspect-square bg-muted rounded-sm overflow-hidden group cursor-pointer"
-              >
-                {carousel.slides.length > 0 ? (
-                  <SlideRenderer
-                    key={`${carousel.id}-${reloadKey}`}
-                    html={carousel.slides[0].html}
-                    aspectRatio={carousel.aspectRatio}
-                    className="w-full h-full"
-                    {...getSlideRendererProps(carousel)}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Layers className="h-6 w-6 text-muted-foreground/30" />
-                  </div>
-                )}
-
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
-                  <span className="text-white text-[11px] font-medium px-2 text-center leading-tight line-clamp-2">
-                    {carousel.name}
-                  </span>
-                  <span className="flex items-center gap-1 text-white/70 text-[10px]">
-                    {carousel.kind === "post" ? (
-                      <><Image className="h-3 w-3" />{t("post")}</>
-                    ) : (
-                      <><SlidersHorizontal className="h-3 w-3" />{carousel.slides.length} {t("slides")}</>
-                    )}
-                  </span>
-                </div>
-
-                {carousel.kind !== "post" && carousel.slides.length > 1 && (
-                  <div className="absolute top-1.5 right-1.5 bg-black/60 rounded px-1 py-0.5 text-[9px] text-white font-medium">
-                    {carousel.slides.length}
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
+          );
+        })}
+      </div>
+    </>
   );
 }

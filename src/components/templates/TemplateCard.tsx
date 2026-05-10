@@ -1,24 +1,45 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2, ArrowRight, ChevronLeft, ChevronRight, Expand, Calendar } from "lucide-react";
+import { Trash2, ArrowRight, ChevronLeft, ChevronRight, Expand, Calendar, Image, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SlideRenderer } from "@/components/editor/SlideRenderer";
 import { FullscreenPreview } from "@/components/editor/FullscreenPreview";
 import { useI18n } from "@/lib/i18n/context";
+import { computeSlideRendererProps } from "@/lib/slide-renderer-props";
 import type { Template } from "@/types/template";
+import type { EffectiveBranding } from "@/types/account";
+import type { Carousel, Slide } from "@/types/carousel";
+import type { SlideRendererProps } from "@/lib/slide-renderer-props";
 
 interface TemplateCardProps {
   template: Template;
+  branding?: EffectiveBranding | null;
   onUse: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-export function TemplateCard({ template, onUse, onDelete }: TemplateCardProps) {
+export function TemplateCard({ template, branding, onUse, onDelete }: TemplateCardProps) {
   const { t } = useI18n();
   const [activeSlide, setActiveSlide] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
   const total = template.slides.length;
+
+  function getRendererProps(slideIdx: number): SlideRendererProps {
+    const slide = template.slides[slideIdx];
+    if (!branding || !slide) return {};
+    // Cast to satisfy types — computeSlideRendererProps only reads brandingOverride from carousel
+    // and styleOverride/html from slide, both of which templates have.
+    return computeSlideRendererProps(
+      branding,
+      { brandingOverride: template.brandingOverride } as unknown as Carousel,
+      slide as unknown as Slide,
+    );
+  }
+
+  const allSlideProps: SlideRendererProps[] | undefined = branding
+    ? template.slides.map((_, i) => getRendererProps(i))
+    : undefined;
 
   // FullscreenPreview expects Slide[] which includes previousVersions
   const fullscreenSlides = template.slides.map((s) => ({ ...s, previousVersions: [] }));
@@ -32,6 +53,7 @@ export function TemplateCard({ template, onUse, onDelete }: TemplateCardProps) {
         aspectRatio={template.aspectRatio}
         activeIndex={activeSlide}
         onActiveChange={setActiveSlide}
+        perSlideProps={allSlideProps}
       />
 
       <div className="rounded-xl border border-border bg-surface p-4 group hover:border-accent/50 hover:shadow-md hover:-translate-y-0.5 transition-[translate,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]">
@@ -45,6 +67,7 @@ export function TemplateCard({ template, onUse, onDelete }: TemplateCardProps) {
               html={template.slides[activeSlide].html}
               aspectRatio={template.aspectRatio}
               className="w-full h-full"
+              {...getRendererProps(activeSlide)}
             />
           ) : (
             <div className="h-full flex items-center justify-center text-muted-foreground/30 text-xs">
@@ -94,6 +117,13 @@ export function TemplateCard({ template, onUse, onDelete }: TemplateCardProps) {
           )}
         </div>
 
+        <div className="flex items-center gap-1.5 mt-0.5 mb-1">
+          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${template.kind === "post" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" : "bg-accent/10 text-accent"}`}>
+            {template.kind === "post"
+              ? <><Image className="h-2.5 w-2.5" />{t("post")}</>
+              : <><SlidersHorizontal className="h-2.5 w-2.5" />{t("carousel")}</>}
+          </span>
+        </div>
         <h3 className="font-semibold text-sm truncate">{template.name}</h3>
         <p className="text-xs text-muted-foreground mt-0.5 truncate">
           {total} {total !== 1 ? t("slides") : t("slide")} &middot; {template.aspectRatio}

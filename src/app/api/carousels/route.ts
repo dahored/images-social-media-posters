@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listCarousels, createCarousel } from "@/lib/carousels";
+import { listCarousels, createCarousel, deleteCarousels } from "@/lib/carousels";
 import type { AspectRatio, ContentKind, CarouselBrandingOverride } from "@/types/carousel";
 
 export async function GET(request: Request) {
@@ -7,6 +7,19 @@ export async function GET(request: Request) {
   const accountId = searchParams.get("accountId") ?? undefined;
   const carousels = await listCarousels(accountId);
   return NextResponse.json({ carousels });
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const body = await request.json() as { ids?: string[] };
+    if (!Array.isArray(body?.ids) || body.ids.length === 0) {
+      return NextResponse.json({ error: "ids array required" }, { status: 400 });
+    }
+    const deleted = await deleteCarousels(body.ids);
+    return NextResponse.json({ deleted });
+  } catch {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
 }
 
 export async function POST(request: Request) {

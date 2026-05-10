@@ -1,4 +1,13 @@
 import { detectSlideRootBackground } from "@/lib/slide-html";
+
+function htmlBrightness(html: string | undefined): number {
+  const bg = detectSlideRootBackground(html ?? "");
+  if (!bg) return 0;
+  const r = parseInt(bg.slice(1, 3), 16);
+  const g = parseInt(bg.slice(3, 5), 16);
+  const b = parseInt(bg.slice(5, 7), 16);
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
 import type { LogoConfig, ColorSubstitution, FontSubstitution } from "@/lib/slide-html";
 import type { Carousel, Slide, SlideColorSet } from "@/types/carousel";
 import type { EffectiveBranding } from "@/types/account";
@@ -56,6 +65,21 @@ export function computeSlideRendererProps(
   const brandFonts = branding.fonts;
   const carouselOverride = carousel.brandingOverride;
   const overrideFonts = carouselOverride?.fonts;
+
+  // When there is no explicit branding intent on the carousel or slide, the baked-in
+  // HTML colors are authoritative. Only inject the logo — skip color substitution.
+  if (!carouselOverride && !slide.styleOverride) {
+    const logoPosition = branding.logoPosition ?? "bottom-center";
+    const logoHeight   = branding.logoHeight   ?? 72;
+    // Pick the logo variant that's readable against the slide's actual background.
+    const isLight = htmlBrightness(slide.html) > 128;
+    const logoPath = isLight
+      ? (branding.logoPathDark  ?? branding.logoPath ?? null)
+      : (branding.logoPathLight ?? branding.logoPath ?? null);
+    return {
+      logoConfig: logoPath ? { path: logoPath, position: logoPosition, height: logoHeight } : undefined,
+    };
+  }
 
   const carouselTheme = carouselOverride?.theme ?? "dark";
   const slideTheme: "dark" | "light" = slide.styleOverride?.theme ?? carouselTheme;

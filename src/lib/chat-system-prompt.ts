@@ -32,8 +32,6 @@ export function buildSystemPrompt(
   const activePalette = activeTheme === "dark"
     ? effectiveColorsDark
     : { ...effectiveColorsDark, ...effectiveColorsLight };
-  const effectiveColors = effectiveColorsDark;
-
   const activeLogo =
     activeTheme === "dark"
       ? (brand.logoPathLight ?? brand.logoPath ?? "none")
@@ -97,14 +95,14 @@ The text shown in the slot schema above is the **template's original example con
 - Text content (any text node)
 - Colors (any \`color\`, \`background\`, gradient, rgba alpha)
 - Fonts (any \`font-family\`, \`font-size\`, \`font-weight\`, \`letter-spacing\`)
-- Decorative wrappers, glows, dividers, gradients, pseudo-overlays
 - Layout details: padding, margin, gap, alignment, flex/grid changes
-- Add or remove **non-role-classed** elements (decorative divs, spans, etc.)
+- Decorative elements (shapes, glows, circles, gradients, dividers, geometric accents) — add, remove, or restyle freely
 
-**ONLY FORBIDDEN — server-side validator (HTTP 422) rejects these**:
+**FORBIDDEN — do NOT do any of these**:
 - Add, remove, or reorder elements that carry a \`slide-*\` role class
 - Change a role class on an existing element (\`slide-title\` → \`slide-body\`, etc.)
 - Change the tag type of a role-classed element
+- **Add new content blocks**: extra text sections, new cards, new bullet lists, icons with labels, clocks, countdowns, or any structural element that introduces content not present in the template — the template's content structure is fixed
 
 **To update a slide**: PUT /api/carousels/${carousel.id}/slides/{SLIDE_ID} with body \`{ "html": "..." }\`. The slot schema shows which role-classed elements must remain — preserve THOSE. Anything else (decoration, layout, colors, fonts, text) is yours to change.
 
@@ -123,7 +121,7 @@ If the user asks for a full redesign that needs adding/removing role-classed slo
 ${slidesSlotContext}
 ${hasRefImages ? `
 ## ⚠️ MANDATORY FIRST STEP — Reference images present
-BEFORE creating any slides, use the Read tool to view each image below. Study ONLY layout composition, element placement, spacing, and grid structure. DO NOT copy colors, fonts, or visual style — apply brand identity on top of the extracted structure.
+BEFORE creating any slides, use the Read tool to view each image below. Extract the content structure from the image: number of text blocks, headings, bullets, cards, and their arrangement. Replicate that content structure faithfully — do NOT add new text sections, cards, or content blocks not visible in the reference. Decorative elements (shapes, backgrounds, glows) may be adapted freely. DO NOT copy colors, fonts, or visual style — apply brand identity on top of the extracted structure.
 ${carousel.referenceImages.map((r) => `- Read: ${r.absPath}  (display name: "${r.name}")`).join("\n")}` : ""}${lockedBlock}`
     : "";
 
@@ -407,11 +405,23 @@ After creating all slides, proactively offer to generate:
 2. 20-30 hashtags: mix of high-reach (500K+), medium (50K-500K), and niche (<50K)
 3. Save via PUT /api/carousels/{id}/caption
 
+## Regenerate / variation rule
+
+When the user asks to **regenerate**, **redo**, **create a variation**, **otra versión**, **regenerar**, **hazlo de nuevo**, or any similar phrasing that implies redoing the current slide(s):
+
+1. **PRESERVE THE EXACT SAME STRUCTURAL LAYOUT** — same number of slides, same slot roles in the same positions (title where title was, body where body was, CTA where CTA was), same general element arrangement (e.g., top icon + large display number + body text + CTA pill = keep that exact pattern)
+2. **VARY ONLY** within that structure: refresh the decorative elements (shapes, circles, gradients, glows), adjust visual weight/colors within the brand palette, rewrite text content if appropriate — but never restructure
+3. **DO NOT** change the fundamental layout pattern or the count/order of role-classed elements
+4. Read the current slide HTML first (GET /api/carousels/{id}) so you know exactly what structure to preserve, then PUT the updated slide with the same structure but new visual treatment
+
+The user wants a fresh look, not a new design. Think of it like reskinning — same bones, new clothes.
+
 ## Behavioral rules
 - BE PROACTIVE: Create first, refine later. Never ask for permission to start creating.
 - ONE SLIDE AT A TIME: Create slides sequentially so the user sees progress
 - BRIEF RESPONSES: After creating slides, describe what you made in 1-2 sentences
 - BRAND CONSISTENCY: Use brand colors, fonts, and style across every slide
 - CREATIVE VARIETY: Vary slide layouts — don't repeat the same layout for every slide
-- ALWAYS END WITH CTA: The last slide should always have a call-to-action`;
+- ALWAYS END WITH CTA: The last slide should always have a call-to-action
+- **NEVER USE REAL TIME/DATE AS DESIGN ELEMENT**: Do NOT create clock displays, countdowns, "hora local", time indicators, or any element that shows the real current time or date — even as decoration or illustration. If a topic relates to time (e.g. "morning routines"), use abstract time imagery (icons, sun symbols, text like "6:00 AM") NOT the actual current time. Ignore any date/time you have in your context when designing slides.`;
 }

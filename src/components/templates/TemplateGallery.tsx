@@ -7,12 +7,14 @@ import { TemplateCard } from "./TemplateCard";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useI18n } from "@/lib/i18n/context";
 import type { Template, TemplateScope } from "@/types/template";
+import { useBranding } from "@/lib/hooks/useBranding";
 import { cn } from "@/lib/utils";
 
 export function TemplateGallery() {
   const { t } = useI18n();
   const router = useRouter();
   const [templates, setTemplates] = useState<Template[]>([]);
+  const branding = useBranding();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TemplateScope | "all">("all");
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
@@ -124,6 +126,7 @@ export function TemplateGallery() {
             <TemplateCard
               key={template.id}
               template={template}
+              branding={branding}
               onUse={handleUse}
               onDelete={(id) => confirmAndDelete(id, template.name)}
             />

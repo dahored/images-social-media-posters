@@ -8,8 +8,10 @@ import { Button } from "./button";
 import { Input } from "./input";
 import { AspectRatioSelector } from "@/components/editor/AspectRatioSelector";
 import { SlideRenderer } from "@/components/editor/SlideRenderer";
+import { computeSlideRendererProps } from "@/lib/slide-renderer-props";
+import { useBranding } from "@/lib/hooks/useBranding";
 import { useI18n } from "@/lib/i18n/context";
-import type { AspectRatio, ContentKind } from "@/types/carousel";
+import type { AspectRatio, ContentKind, Carousel, Slide } from "@/types/carousel";
 import type { Template } from "@/types/template";
 
 interface CreateContentDialogProps {
@@ -23,6 +25,7 @@ type Step = "kind" | "source" | "blank" | "template";
 export function CreateContentDialog({ open, onOpenChange, onCreate }: CreateContentDialogProps) {
   const { t } = useI18n();
   const router = useRouter();
+  const branding = useBranding();
   const [step, setStep] = useState<Step>("kind");
   const [kind, setKind] = useState<ContentKind>("carousel");
   const [name, setName] = useState("");
@@ -239,7 +242,12 @@ export function CreateContentDialog({ open, onOpenChange, onCreate }: CreateCont
                     >
                       <div className="h-24 rounded-lg bg-muted mb-2 overflow-hidden">
                         {tmpl.slides.length > 0 ? (
-                          <SlideRenderer html={tmpl.slides[0].html} aspectRatio={tmpl.aspectRatio} className="w-full h-full" />
+                          <SlideRenderer
+                            html={tmpl.slides[0].html}
+                            aspectRatio={tmpl.aspectRatio}
+                            className="w-full h-full"
+                            {...(branding ? computeSlideRendererProps(branding, { brandingOverride: tmpl.brandingOverride } as unknown as Carousel, tmpl.slides[0] as unknown as Slide) : {})}
+                          />
                         ) : (
                           <div className="h-full flex items-center justify-center text-muted-foreground/30 text-xs">{t("empty")}</div>
                         )}

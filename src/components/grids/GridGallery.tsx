@@ -7,11 +7,15 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useI18n } from "@/lib/i18n/context";
 import type { Grid } from "@/types/grid";
 import type { Template } from "@/types/template";
+import type { Carousel, Slide } from "@/types/carousel";
 import { GridBuilderDialog } from "./GridBuilderDialog";
 import { SlideRenderer } from "@/components/editor/SlideRenderer";
+import { computeSlideRendererProps } from "@/lib/slide-renderer-props";
+import { useBranding } from "@/lib/hooks/useBranding";
 
 export function GridGallery() {
   const { t } = useI18n();
+  const branding = useBranding();
   const [grids, setGrids] = useState<Grid[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,6 +121,7 @@ export function GridGallery() {
                             html={tpl.slides[0].html}
                             aspectRatio={tpl.aspectRatio}
                             className="w-full h-full"
+                            {...(branding ? computeSlideRendererProps(branding, { brandingOverride: tpl.brandingOverride } as unknown as Carousel, tpl.slides[0] as unknown as Slide) : {})}
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground/40">

@@ -218,16 +218,16 @@ export function wrapSlideHtml(
   }
 
   let fontBlock = "";
-  if (options?.inlineFontCss) {
-    fontBlock = `<style>${options.inlineFontCss}</style>`;
-  } else if (allFontFamilies.length > 0) {
+  if (allFontFamilies.length > 0) {
     const params = allFontFamilies
-      .map(
-        (f) =>
-          `family=${encodeURIComponent(f)}:wght@300;400;500;600;700;800`
-      )
+      .map((f) => `family=${encodeURIComponent(f)}:wght@300;400;500;600;700;800`)
       .join("&");
+    // Always include a Google Fonts link so fonts load even if inlining failed/was partial
     fontBlock = `<link href="https://fonts.googleapis.com/css2?${params}&display=swap" rel="stylesheet">`;
+  }
+  if (options?.inlineFontCss) {
+    // Inlined CSS takes priority (instant load, no network round-trip) but the link above acts as fallback
+    fontBlock = `<style>${options.inlineFontCss}</style>\n  ${fontBlock}`;
   }
 
   // Strip any logo the AI may have included in the slide HTML to avoid duplicates

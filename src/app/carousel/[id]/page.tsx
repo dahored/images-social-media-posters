@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, use } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Trash2, Grid3X3, Bookmark, Maximize2, X, Settings2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Lock, LockOpen } from "lucide-react";
 import { PublishButton } from "@/components/editor/PublishButton";
 import { TopBar } from "@/components/layout/TopBar";
@@ -31,6 +31,8 @@ interface PageProps {
 export default function CarouselEditorPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const backHref = searchParams.get("from") ?? "/";
   const { t } = useI18n();
   const [carousel, setCarousel] = useState<Carousel | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -495,6 +497,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
       <TopBar
         title={carousel.name}
         showBack
+        backHref={backHref}
         editable
         onTitleChange={async (name) => {
           const res = await fetch(`/api/carousels/${id}`, {

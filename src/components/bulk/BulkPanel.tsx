@@ -2,19 +2,35 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ArrowRight, AlertCircle, CheckCircle2, Sparkles } from "lucide-react";
+import { Loader2, ArrowRight, AlertCircle, CheckCircle2, Sparkles, Copy, Check, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/context";
+import { useBranding } from "@/lib/hooks/useBranding";
+import { computeSlideRendererProps } from "@/lib/slide-renderer-props";
 import type { Grid } from "@/types/grid";
 import type { Template } from "@/types/template";
 import type { BulkPreview, ParsedContent } from "@/types/bulk";
+import type { Carousel, Slide } from "@/types/carousel";
 import { SlideRenderer } from "@/components/editor/SlideRenderer";
 
 type Step = "pick-grid" | "input" | "preview" | "generating" | "done";
 
+type CellStatus = "pending" | "generating" | "done" | "error";
+
+interface CellProgress {
+  position: number;
+  templateName: string;
+  templateKind: "post" | "carousel";
+  topic: string;
+  status: CellStatus;
+  result?: { id: string; name: string };
+  error?: string;
+}
+
 export function BulkPanel() {
   const { t } = useI18n();
   const router = useRouter();
+  const branding = useBranding();
   const [step, setStep] = useState<Step>("pick-grid");
   const [grids, setGrids] = useState<Grid[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -23,9 +39,10 @@ export function BulkPanel() {
   const [parsed, setParsed] = useState<ParsedContent | null>(null);
   const [preview, setPreview] = useState<BulkPreview | null>(null);
   const [previewing, setPreviewing] = useState(false);
-  const [generating, setGenerating] = useState(false);
+  const [cellProgress, setCellProgress] = useState<CellProgress[]>([]);
   const [generatedCarousels, setGeneratedCarousels] = useState<Array<{ id: string; name: string }>>([]);
   const [errors, setErrors] = useState<Array<{ position: number; error: string }>>([]);
+  const [copied, setCopied] = useState(false);
 
   const fetchData = useCallback(() => {
     const accountId = localStorage.getItem("activeAccountId");
@@ -70,23 +87,89 @@ export function BulkPanel() {
   };
 
   const handleGenerate = async () => {
-    if (!selectedGrid || !content.trim()) return;
-    setGenerating(true);
+    if (!selectedGrid || !content.trim() || !preview) return;
+
+    // Initialise progress list from preview plan
+    const initialProgress: CellProgress[] = preview.cells.map((c) => ({
+      position: c.position,
+      templateName: c.templateName,
+      templateKind: c.templateKind,
+      topic: c.contentFragment.items[0] || c.contentFragment.title || "",
+      status: "pending",
+    }));
+    setCellProgress(initialProgress);
+    setGeneratedCarousels([]);
+    setErrors([]);
     setStep("generating");
-    try {
-      const accountId = localStorage.getItem("activeAccountId") ?? undefined;
-      const res = await fetch("/api/bulk/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gridId: selectedGrid.id, content, accountId }),
-      });
-      const data = await res.json();
-      setGeneratedCarousels(data.result?.carousels ?? []);
-      setErrors(data.result?.errors ?? []);
+
+    const accountId = localStorage.getItem("activeAccountId") ?? undefined;
+    const res = await fetch("/api/bulk/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gridId: selectedGrid.id, content, accountId }),
+    });
+
+    if (!res.body) {
       setStep("done");
-    } finally {
-      setGenerating(false);
+      return;
     }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    const carousels: Array<{ id: string; name: string }> = [];
+    const errs: Array<{ position: number; error: string }> = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const messages = buffer.split("\n\n");
+      buffer = messages.pop() ?? "";
+
+      for (const msg of messages) {
+        const eventMatch = msg.match(/^event: (.+)$/m);
+        const dataMatch = msg.match(/^data: (.+)$/m);
+        if (!dataMatch) continue;
+        const event = eventMatch?.[1] ?? "message";
+        let data: Record<string, unknown>;
+        try { data = JSON.parse(dataMatch[1]); } catch { continue; }
+
+        if (event === "plan") {
+          // Server may send updated plan (e.g., with warnings) — reinit progress
+          const planCells = data.cells as Array<{ position: number; templateName: string; templateKind: "post" | "carousel" }>;
+          if (planCells?.length) {
+            setCellProgress(planCells.map((c) => ({ ...c, topic: "", status: "pending" })));
+          }
+        } else if (event === "progress") {
+          const { position, status, carousel, error } = data as {
+            position: number;
+            status: CellStatus;
+            carousel?: { id: string; name: string };
+            error?: string;
+          };
+          setCellProgress((prev) =>
+            prev.map((c) =>
+              c.position === position
+                ? { ...c, status, result: carousel, error }
+                : c
+            )
+          );
+          if (status === "done" && carousel) carousels.push(carousel);
+          if (status === "error" && error) errs.push({ position, error });
+        } else if (event === "complete") {
+          setGeneratedCarousels(carousels);
+          setErrors(errs);
+          setStep("done");
+        }
+      }
+    }
+
+    // Fallback if stream ended without complete event
+    setGeneratedCarousels(carousels);
+    setErrors(errs);
+    if (step === "generating") setStep("done");
   };
 
   const reset = () => {
@@ -95,6 +178,7 @@ export function BulkPanel() {
     setContent("");
     setParsed(null);
     setPreview(null);
+    setCellProgress([]);
     setGeneratedCarousels([]);
     setErrors([]);
   };
@@ -127,7 +211,16 @@ export function BulkPanel() {
                       return (
                         <div key={item.position} className="bg-background rounded overflow-hidden">
                           {tpl && tpl.slides[0] ? (
-                            <SlideRenderer html={tpl.slides[0].html} aspectRatio={tpl.aspectRatio} className="w-full h-full" />
+                            <SlideRenderer
+                              html={tpl.slides[0].html}
+                              aspectRatio={tpl.aspectRatio}
+                              className="w-full h-full"
+                              {...(branding ? computeSlideRendererProps(
+                                branding,
+                                { brandingOverride: tpl.brandingOverride } as unknown as Carousel,
+                                tpl.slides[0] as unknown as Slide,
+                              ) : {})}
+                            />
                           ) : <div className="w-full h-full" />}
                         </div>
                       );
@@ -160,8 +253,6 @@ export function BulkPanel() {
     }
     const hasRequirements = carouselsNeeded + postsNeeded > 0;
 
-    // One section per cell, in grid order — mirrors the actual layout.
-    // Posts = heading + one content line. Carousels = heading + one bullet per slide.
     let example = "";
     if (selectedGrid && hasRequirements) {
       const exampleBlocks: string[] = [];
@@ -207,7 +298,16 @@ export function BulkPanel() {
             {example && (
               <div className="mt-3 pt-3 border-t border-accent/20">
                 <p className="text-[11px] font-medium mb-1.5 text-muted-foreground">{t("bulkExampleTitle")}</p>
-                <pre className="p-2 bg-background rounded border border-border text-[11px] whitespace-pre-wrap font-mono leading-relaxed">{example}</pre>
+                <div className="relative">
+                  <pre className="p-2 bg-background rounded border border-border text-[11px] whitespace-pre-wrap font-mono leading-relaxed">{example}</pre>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(example); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+                    className="absolute top-1.5 right-1.5 h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    title="Copiar"
+                  >
+                    {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                  </button>
+                </div>
                 <button
                   onClick={() => setContent(example)}
                   className="mt-1.5 text-[11px] text-accent hover:underline"
@@ -289,7 +389,7 @@ export function BulkPanel() {
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={() => setStep("input")}>{t("back")}</Button>
-          <Button variant="accent" size="sm" disabled={preview.cells.length === 0 || generating} onClick={handleGenerate}>
+          <Button variant="accent" size="sm" disabled={preview.cells.length === 0} onClick={handleGenerate}>
             <Sparkles className="h-3.5 w-3.5" />
             {t("bulkGenerate", { n: String(preview.cells.length) })}
           </Button>
@@ -299,11 +399,48 @@ export function BulkPanel() {
   }
 
   if (step === "generating") {
+    const done = cellProgress.filter((c) => c.status === "done" || c.status === "error").length;
+    const total = cellProgress.length;
     return (
-      <div className="text-center py-20">
-        <Loader2 className="h-10 w-10 text-accent animate-spin mx-auto mb-4" />
-        <p className="text-sm font-medium mb-1">{t("bulkGeneratingTitle")}</p>
-        <p className="text-xs text-muted-foreground">{t("bulkGeneratingHint")}</p>
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm font-medium">{t("bulkGeneratingTitle")}</p>
+          <p className="text-xs text-muted-foreground">{done}/{total}</p>
+        </div>
+        <div className="space-y-2">
+          {cellProgress.map((cell) => (
+            <div
+              key={cell.position}
+              className="flex items-center gap-3 rounded-lg border border-border bg-surface p-3"
+            >
+              <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">
+                #{cell.position + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium truncate">{cell.templateName} <span className="text-muted-foreground font-normal">({cell.templateKind})</span></p>
+                {cell.topic && <p className="text-[11px] text-muted-foreground truncate mt-0.5">{cell.topic}</p>}
+              </div>
+              <div className="shrink-0">
+                {cell.status === "pending" && <Circle className="h-4 w-4 text-muted-foreground/40" />}
+                {cell.status === "generating" && <Loader2 className="h-4 w-4 text-accent animate-spin" />}
+                {cell.status === "done" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                {cell.status === "error" && (
+                  <span title={cell.error}>
+                    <AlertCircle className="h-4 w-4 text-destructive" />
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        {total > 0 && (
+          <div className="mt-4 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-accent transition-all duration-500"
+              style={{ width: `${(done / total) * 100}%` }}
+            />
+          </div>
+        )}
       </div>
     );
   }
@@ -341,8 +478,9 @@ export function BulkPanel() {
             </ul>
           </div>
         )}
-        <div className="flex justify-center">
+        <div className="flex justify-center gap-3">
           <Button variant="outline" size="sm" onClick={reset}>{t("bulkStartOver")}</Button>
+          <Button variant="accent" size="sm" onClick={() => router.push(selectedGrid ? `/content/my-posts-grid/${selectedGrid.id}` : "/content/my-posts-grid")}>{t("bulkViewPostGrid")}</Button>
         </div>
       </div>
     );

@@ -5,12 +5,13 @@ import type { Grid } from "@/types/grid";
 import type { Template } from "@/types/template";
 
 /**
- * Distributes parsed content across grid cells:
- * - `post` cells get one item each (drawn from the next available item in any category, in order).
- * - `carousel` cells get a whole category (title + items).
+ * Distributes parsed content across grid cells using a strict 1-section-per-cell
+ * positional mapping:
+ * - The Nth section in the input maps to the Nth filled cell in the grid.
+ * - Post cells get 1 item from the section.
+ * - Carousel cells get all items from the section.
  *
- * Greedy strategy: walks cells in order. Posts consume one item; carousels consume one category.
- * If content runs out, remaining cells get a warning and are skipped from generation.
+ * Empty cells (no template) are skipped without consuming a section.
  */
 export function planBulkDistribution(
   grid: Grid,
@@ -21,25 +22,26 @@ export function planBulkDistribution(
   const warnings: string[] = [];
   const cells: BulkCellPlan[] = [];
 
-  // Flatten content into two consumable queues:
-  // - itemQueue: every individual bullet, with its parent category title (for context)
-  // - categoryQueue: full categories (for carousels)
-  const categoryQueue = content.categories.map((c) => ({ title: c.title, items: [...c.items] }));
-  const itemQueue: Array<{ title: string; text: string }> = [];
-  for (const c of content.categories) {
-    for (const item of c.items) itemQueue.push({ title: c.title, text: item });
-  }
+  let sectionIdx = 0;
 
   for (const cell of grid.items) {
-    if (!cell.templateId) {
-      warnings.push(`Cell ${cell.position + 1} has no template assigned.`);
-      continue;
-    }
+    if (!cell.templateId) continue; // unfilled slot — skip silently
+
     const tpl = tplById.get(cell.templateId);
     if (!tpl) {
-      warnings.push(`Cell ${cell.position + 1} references missing template ${cell.templateId}.`);
+      warnings.push(`Celda ${cell.position + 1}: plantilla no encontrada.`);
       continue;
     }
+
+    const section = content.categories[sectionIdx];
+    if (!section || section.items.length === 0) {
+      warnings.push(
+        `Celda ${cell.position + 1}: sin sección de contenido. Añade un bloque más al input.`
+      );
+      sectionIdx++;
+      continue;
+    }
+    sectionIdx++;
 
     const slidesSchema = tpl.slides.map((s) => {
       const { slots } = extractSlots(s.html);
@@ -49,51 +51,29 @@ export function planBulkDistribution(
           id: slot.id,
           role: slot.role,
           currentText: slot.text,
+          hasAccent: slot.hasAccent,
         })),
       };
     });
 
     if (tpl.kind === "post") {
-      const next = itemQueue.shift();
-      if (!next) {
-        warnings.push(`Cell ${cell.position + 1} (post) — out of content items.`);
-        continue;
-      }
       cells.push({
         position: cell.position,
         templateId: tpl.id,
         templateName: tpl.name,
         templateKind: "post",
         slidesSchema,
-        contentFragment: { title: next.title || undefined, items: [next.text] },
+        contentFragment: { title: section.title || undefined, items: [section.items[0]] },
       });
-      // Remove this item from the parent category queue too (so a subsequent carousel doesn't reuse it)
-      const cat = categoryQueue.find((c) => c.title === next.title);
-      if (cat) {
-        const idx = cat.items.indexOf(next.text);
-        if (idx >= 0) cat.items.splice(idx, 1);
-      }
     } else {
-      // carousel — find the next category with content
-      let cat = categoryQueue.find((c) => c.items.length > 0);
-      if (!cat) {
-        warnings.push(`Cell ${cell.position + 1} (carousel) — out of content categories.`);
-        continue;
-      }
       cells.push({
         position: cell.position,
         templateId: tpl.id,
         templateName: tpl.name,
         templateKind: "carousel",
         slidesSchema,
-        contentFragment: { title: cat.title || undefined, items: [...cat.items] },
+        contentFragment: { title: section.title || undefined, items: [...section.items] },
       });
-      // Mark the category as consumed
-      cat.items = [];
-      // Also drain items from the post queue that came from this category
-      for (let i = itemQueue.length - 1; i >= 0; i--) {
-        if (itemQueue[i].title === cat.title) itemQueue.splice(i, 1);
-      }
     }
   }
 

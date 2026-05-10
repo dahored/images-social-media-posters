@@ -11,6 +11,7 @@ import { useI18n, type Locale } from "@/lib/i18n/context";
 interface TopBarProps {
   title?: string;
   showBack?: boolean;
+  backHref?: string;
   editable?: boolean;
   onTitleChange?: (newTitle: string) => void;
 }
@@ -148,6 +149,7 @@ function MainNav() {
 export function TopBar({
   title,
   showBack,
+  backHref = "/",
   editable,
   onTitleChange,
 }: TopBarProps) {
@@ -178,7 +180,7 @@ export function TopBar({
   return (
     <header className="h-14 border-b border-border bg-surface flex items-center px-4 gap-3 shrink-0">
       {showBack && (
-        <Link href="/">
+        <Link href={backHref}>
           <Button variant="ghost" size="icon" aria-label={t("backToDashboard")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
