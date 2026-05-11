@@ -3,7 +3,7 @@ import { getTemplate, listTemplates } from "@/lib/templates";
 import { parseBulkContent } from "@/lib/bulk-parser";
 import { planBulkDistribution } from "@/lib/bulk-planner";
 import { runClaudeOnce, extractJson } from "@/lib/claude-runner";
-import { fillSlots } from "@/lib/slot-extractor";
+import { fillSlots, extractSlots } from "@/lib/slot-extractor";
 import { detectSlideRootBackground } from "@/lib/slide-html";
 import { createCarousel, addSlide, updateCarousel, getCarousel } from "@/lib/carousels";
 import { getEffectiveBranding } from "@/lib/accounts";
@@ -127,6 +127,7 @@ export async function POST(request: Request) {
           gridId?: string;
           content?: string;
           accountId?: string;
+          positions?: number[];
         };
 
         if (!body.gridId || typeof body.content !== "string") {
@@ -150,20 +151,27 @@ export async function POST(request: Request) {
         const parsed = parseBulkContent(body.content);
         const preview = planBulkDistribution(grid, allTemplates, parsed);
 
-        // Notify client of total plan upfront
-        send(controller, "plan", {
-          cells: preview.cells.map((c) => ({
-            position: c.position,
-            templateName: c.templateName,
-            templateKind: c.templateKind,
-          })),
-          warnings: preview.warnings,
-        });
+        const isRetry = body.positions && body.positions.length > 0;
+        const cellsToProcess = isRetry
+          ? preview.cells.filter((c) => body.positions!.includes(c.position))
+          : preview.cells;
+
+        // Only send plan on full generation (not retries — client manages its own state)
+        if (!isRetry) {
+          send(controller, "plan", {
+            cells: preview.cells.map((c) => ({
+              position: c.position,
+              templateName: c.templateName,
+              templateKind: c.templateKind,
+            })),
+            warnings: preview.warnings,
+          });
+        }
 
         const carousels: Array<{ id: string; name: string; templateId: string }> = [];
         const errors: Array<{ position: number; error: string }> = [];
 
-        for (const cell of preview.cells) {
+        for (const cell of cellsToProcess) {
           send(controller, "progress", {
             position: cell.position,
             status: "generating",
@@ -236,7 +244,15 @@ export async function POST(request: Request) {
           );
           for (const slide of tpl.slides) {
             const fills = fillsBySlideId.get(slide.id) ?? {};
-            const filledHtml = fillSlots(slide.html, fills);
+            // Re-apply emoji prefixes from the template slots — they act as visual markers
+            // (e.g. "💔 " before a list item) but the AI replaces them with plain text.
+            const { slots: templateSlots } = extractSlots(slide.html);
+            const fillsWithEmoji: Record<string, string> = {};
+            for (const [slotId, text] of Object.entries(fills)) {
+              const slot = templateSlots.find((s) => s.id === slotId);
+              fillsWithEmoji[slotId] = slot?.emojiPrefix ? slot.emojiPrefix + text : text;
+            }
+            const filledHtml = fillSlots(slide.html, fillsWithEmoji);
             // Copy styleOverride from the template slide (preserves per-slide theme, logo, colors)
             await addSlide(carousel.id, filledHtml, slide.notes, slide.styleOverride);
           }

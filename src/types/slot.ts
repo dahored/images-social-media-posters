@@ -28,6 +28,8 @@ export interface SlideSlot {
   order: number;
   /** id of the parent slot if this slot is nested inside a slide-section-* element. */
   parentSectionId?: string;
+  /** Leading emoji character(s) + trailing space that act as a visual marker (e.g. "💔 "). Preserved across slot fills. */
+  emojiPrefix?: string;
 }
 
 export interface SlotSchema {

@@ -98,6 +98,16 @@ function cleanText(raw: string): string {
   return raw.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Detect a leading emoji acting as a visual marker (e.g. "💔 ", "⏰ ", "🎮 ").
+ * Returns the emoji + trailing whitespace if found at the start of the text, else undefined.
+ * Covers the most common pictographic ranges plus variation selectors and ZWJ sequences.
+ */
+const LEADING_EMOJI_RE = /^([\u{1F000}-\u{1FFFF}\u{2300}-\u{27BF}\u{2B50}\u{2B55}][️⃣]?(?:‍[\u{1F000}-\u{1FFFF}][️]?)*\s+)/u;
+function extractEmojiPrefix(text: string): string | undefined {
+  return LEADING_EMOJI_RE.exec(text)?.[1];
+}
+
 export function extractSlots(slideHtml: string): SlotSchema {
   const $ = cheerio.load(`<div id="__root">${slideHtml}</div>`, null, false);
   const slots: SlideSlot[] = [];
@@ -144,6 +154,7 @@ export function extractSlots(slideHtml: string): SlotSchema {
       accentText,
       order,
       parentSectionId,
+      emojiPrefix: extractEmojiPrefix(text),
     });
     slotsByElement.set(el, id);
     order += 1;
