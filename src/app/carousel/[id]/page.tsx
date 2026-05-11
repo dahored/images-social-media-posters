@@ -56,6 +56,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
   const [templateChoiceOpen, setTemplateChoiceOpen] = useState(false);
+  const [sourceTemplateExists, setSourceTemplateExists] = useState(false);
 
   const saveAsNewTemplate = async () => {
     const res = await fetch("/api/templates", {
@@ -136,6 +137,10 @@ export default function CarouselEditorPage({ params }: PageProps) {
       if (res.ok) {
         const data = await res.json();
         setSlidesDesignedForRatio(data.aspectRatio);
+        if (data.templateId) {
+          const tplRes = await fetch(`/api/templates/${data.templateId}`);
+          setSourceTemplateExists(tplRes.ok);
+        }
       }
       await fetchCarousel();
       try {
@@ -660,7 +665,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  if (carousel.templateId) {
+                  if (carousel.templateId && sourceTemplateExists) {
                     setTemplateChoiceOpen(true);
                   } else {
                     saveAsNewTemplate();
