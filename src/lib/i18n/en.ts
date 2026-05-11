@@ -208,6 +208,7 @@ export const en = {
   bulkErrors: "errors",
   bulkErrorsTitle: "Errors",
   bulkStartOver: "Start over",
+  retry: "Retry",
   bulkViewPostGrid: "View Post Grid",
   saveAsTemplate: "Save as template",
   deleteCarouselLabel: "Delete carousel",
@@ -266,6 +267,7 @@ export const en = {
   // Export button
   exportPNG: "Export PNG",
   exportZIP: "Export ZIP",
+  downloading: "Downloading…",
   downloaded: "Downloaded!",
 
   // Filmstrip

@@ -210,6 +210,7 @@ export const es: Record<TranslationKey, string> = {
   bulkErrors: "errores",
   bulkErrorsTitle: "Errores",
   bulkStartOver: "Empezar de nuevo",
+  retry: "Reintentar",
   bulkViewPostGrid: "Ver Post Grid",
   saveAsTemplate: "Guardar como plantilla",
   deleteCarouselLabel: "Eliminar carrusel",
@@ -268,6 +269,7 @@ export const es: Record<TranslationKey, string> = {
   // Export button
   exportPNG: "Exportar PNG",
   exportZIP: "Exportar ZIP",
+  downloading: "Descargando…",
   downloaded: "¡Descargado!",
 
   // Filmstrip

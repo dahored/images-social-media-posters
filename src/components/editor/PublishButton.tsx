@@ -37,6 +37,8 @@ interface PublishDialogProps {
 export function PublishDialog({ open, onOpenChange, carouselId, carouselName, caption, hashtags, isPost = false }: PublishDialogProps) {
   const { t } = useI18n();
   const [telegramConfigured, setTelegramConfigured] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [done, setDone] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -55,20 +57,29 @@ export function PublishDialog({ open, onOpenChange, carouselId, carouselName, ca
   }, [open]);
 
   useEffect(() => {
-    if (!open) { setShareTarget(null); setError(null); setDone(false); setShared(false); }
+    if (!open) { setShareTarget(null); setError(null); setDone(false); setShared(false); setDownloaded(false); }
   }, [open]);
 
   const handleDownload = async () => {
-    onOpenChange(false);
-    const response = await fetch(`/api/carousels/${carouselId}/export`, { method: "POST" });
-    if (!response.ok) return;
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = isPost ? `post-${carouselId}.png` : `carousel-${carouselId}.zip`;
-    a.click();
-    URL.revokeObjectURL(url);
+    setDownloading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/carousels/${carouselId}/export`, { method: "POST" });
+      if (!response.ok) { setError("Export failed"); return; }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = isPost ? `post-${carouselId}.png` : `carousel-${carouselId}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setDownloaded(true);
+      setTimeout(() => onOpenChange(false), 1500);
+    } catch {
+      setError("Download failed");
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const handleShare = async () => {
@@ -150,12 +161,12 @@ export function PublishDialog({ open, onOpenChange, carouselId, carouselName, ca
               </div>
 
               <div className="space-y-2">
-                <button onClick={handleDownload} className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors cursor-pointer">
+                <button onClick={handleDownload} disabled={downloading || downloaded} className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-foreground/30 hover:bg-muted text-left transition-colors disabled:opacity-60 cursor-pointer">
                   <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
-                    <Download className="h-4 w-4" />
+                    {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : downloaded ? <Check className="h-4 w-4 text-green-500" /> : <Download className="h-4 w-4" />}
                   </div>
                   <div>
-                    <div className="text-sm font-medium">{isPost ? t("downloadPNG") : t("downloadZIP")}</div>
+                    <div className="text-sm font-medium">{downloaded ? t("downloaded") : downloading ? t("downloading") : isPost ? t("downloadPNG") : t("downloadZIP")}</div>
                     <div className="text-xs text-muted-foreground">{isPost ? t("singleImageFile") : t("allSlidesZIP")}</div>
                   </div>
                 </button>
