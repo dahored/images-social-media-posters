@@ -37,6 +37,10 @@ function hexBrightness(hex: string): number {
 /** Derive a minimal brandingOverride with theme from the carousel, or detect from HTML. */
 function buildBrandingOverride(carousel: Carousel): { brandingOverride?: CarouselBrandingOverride } {
   if (carousel.brandingOverride) return { brandingOverride: carousel.brandingOverride };
+  // If the first slide has an explicit theme override, trust it — the HTML background
+  // reflects the original authoring palette, not the current intended theme.
+  const firstSlideTheme = carousel.slides[0]?.styleOverride?.theme;
+  if (firstSlideTheme) return { brandingOverride: { theme: firstSlideTheme } };
   const firstHtml = carousel.slides[0]?.html;
   const bg = firstHtml ? detectSlideRootBackground(firstHtml) : null;
   const theme: "light" | "dark" = bg && hexBrightness(bg) > 128 ? "light" : "dark";

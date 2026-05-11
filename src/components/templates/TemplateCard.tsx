@@ -64,6 +64,7 @@ export function TemplateCard({ template, branding, onUse, onDelete }: TemplateCa
         >
           {total > 0 ? (
             <SlideRenderer
+              key={`${template.id}-${activeSlide}-${!!branding}`}
               html={template.slides[activeSlide].html}
               aspectRatio={template.aspectRatio}
               className="w-full h-full"
