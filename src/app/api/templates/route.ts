@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { listTemplates, saveAsTemplate } from "@/lib/templates";
-import { getCarousel } from "@/lib/carousels";
+import { getCarousel, updateCarousel } from "@/lib/carousels";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -34,6 +34,8 @@ export async function POST(request: Request) {
     }
 
     const template = await saveAsTemplate(carousel, name, description);
+    // Link the carousel back to its new template so future saves offer the update flow
+    await updateCarousel(carouselId, { templateId: template.id });
     return NextResponse.json(template, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });

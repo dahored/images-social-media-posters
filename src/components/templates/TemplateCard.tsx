@@ -131,7 +131,7 @@ export function TemplateCard({ template, branding, onUse, onDelete }: TemplateCa
         </p>
         <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
           <Calendar className="h-3 w-3" />
-          {new Date(template.createdAt).toLocaleDateString()}
+          {new Date(template.updatedAt ?? template.createdAt).toLocaleDateString()}
         </p>
 
         <div className="flex items-center gap-2 mt-3">

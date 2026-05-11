@@ -66,6 +66,9 @@ export default function CarouselEditorPage({ params }: PageProps) {
     });
     if (res.ok) {
       setTemplateSaved(true);
+      setSourceTemplateExists(true);
+      // Sync carousel state so it reflects the new templateId
+      fetchCarousel();
       setTimeout(() => setTemplateSaved(false), 2000);
     }
     setTemplateChoiceOpen(false);
