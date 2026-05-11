@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Layers, SlidersHorizontal, Trash2, X, ChevronLeft, ChevronRight, Pencil, Send } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import { SlideRenderer } from "@/components/editor/SlideRenderer";
+import { ContentSidebar } from "@/components/editor/ContentSidebar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { PublishDialog } from "@/components/editor/PublishButton";
@@ -59,6 +60,14 @@ export default function PostsGridDetailPage() {
     window.addEventListener("account-changed", handler);
     return () => window.removeEventListener("account-changed", handler);
   }, [fetchData]);
+
+  const refreshPreviewCarousel = useCallback(async (carouselId: string) => {
+    const res = await fetch(`/api/carousels/${carouselId}`).then((r) => r.json()).catch(() => null);
+    if (res?.id) {
+      setPreview((p) => p ? { ...p, carousel: res } : p);
+      setCarousels((prev) => prev.map((c) => c.id === carouselId ? res : c));
+    }
+  }, []);
 
   // Close fullscreen on Escape
   useEffect(() => {
@@ -116,97 +125,110 @@ export default function PostsGridDetailPage() {
         const rendererProps = slide ? getSlideRendererProps(pc, slide) : {};
         const total = pc.slides.length;
         return (
-          <div
-            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center"
-            onClick={() => setPreview(null)}
-          >
-            {/* Top bar */}
-            <div
-              className="absolute top-0 inset-x-0 flex items-center justify-between px-4 py-3 bg-black/40"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <p className="text-white text-sm font-medium truncate max-w-xs">{pc.name}</p>
-              <div className="flex items-center gap-2">
-                <PublishDialog
-                  open={publishOpen}
-                  onOpenChange={setPublishOpen}
+          <div className="fixed inset-0 z-50 flex flex-col">
+            {/* Backdrop — clicking it closes the modal */}
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setPreview(null)} />
+
+            {/* Modal content */}
+            <div className="relative z-10 flex flex-col h-full">
+              {/* Top bar */}
+              <div className="flex items-center justify-between px-4 py-3 bg-black/60 shrink-0">
+                <p className="text-white text-sm font-medium truncate max-w-xs">{pc.name}</p>
+                <div className="flex items-center gap-2">
+                  <PublishDialog
+                    open={publishOpen}
+                    onOpenChange={setPublishOpen}
+                    carouselId={pc.id}
+                    carouselName={pc.name}
+                    caption={pc.caption}
+                    hashtags={pc.hashtags}
+                    isPost={pc.kind === "post" || pc.slides.length === 1}
+                  />
+                  <button
+                    onClick={() => setPublishOpen(true)}
+                    className="h-8 px-3 rounded-lg flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-sm font-medium transition-colors"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    {t("publish")}
+                  </button>
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => router.push(`/carousel/${pc.id}?from=${encodeURIComponent(returnPath)}`)}
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                    {t("edit")}
+                  </Button>
+                  <button
+                    onClick={() => setPreview(null)}
+                    className="h-8 w-8 rounded-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Body: slide + caption/hashtag panel */}
+              <div className="flex-1 flex overflow-hidden">
+                {/* Slide area */}
+                <div className="flex-1 flex flex-col items-center justify-center relative px-16 py-6">
+                  {total > 1 && (
+                    <button
+                      onClick={() => setPreview((p) => p && p.slideIdx > 0 ? { ...p, slideIdx: p.slideIdx - 1 } : p)}
+                      disabled={slideIdx === 0}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 disabled:opacity-20 transition-all"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                  )}
+                  <div className="h-full max-h-full flex items-center justify-center">
+                    <div
+                      className="rounded-xl overflow-hidden shadow-2xl"
+                      style={{ aspectRatio: pc.aspectRatio.replace(":", "/"), height: "min(100%, 70vh)", width: "auto" }}
+                    >
+                      {slide && (
+                        <SlideRenderer
+                          html={slide.html}
+                          aspectRatio={pc.aspectRatio}
+                          className="w-full h-full"
+                          {...rendererProps}
+                        />
+                      )}
+                    </div>
+                  </div>
+                  {total > 1 && (
+                    <button
+                      onClick={() => setPreview((p) => p && p.slideIdx < p.carousel.slides.length - 1 ? { ...p, slideIdx: p.slideIdx + 1 } : p)}
+                      disabled={slideIdx === total - 1}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 disabled:opacity-20 transition-all"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  )}
+                  {total > 1 && (
+                    <div className="flex gap-1.5 mt-4 shrink-0">
+                      {pc.slides.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setPreview((p) => p ? { ...p, slideIdx: i } : p)}
+                          className={`h-1.5 rounded-full transition-all ${i === slideIdx ? "w-4 bg-white" : "w-1.5 bg-white/40 hover:bg-white/70"}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Caption & hashtags panel */}
+                <ContentSidebar
                   carouselId={pc.id}
-                  carouselName={pc.name}
                   caption={pc.caption}
                   hashtags={pc.hashtags}
+                  networkId={pc.networkId}
                   isPost={pc.kind === "post" || pc.slides.length === 1}
+                  onRefresh={() => refreshPreviewCarousel(pc.id)}
                 />
-                <button
-                  onClick={(e) => { e.stopPropagation(); setPublishOpen(true); }}
-                  className="h-8 px-3 rounded-lg flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-sm font-medium transition-colors"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  {t("publish")}
-                </button>
-                <Button
-                  variant="accent"
-                  size="sm"
-                  onClick={() => router.push(`/carousel/${pc.id}?from=${encodeURIComponent(returnPath)}`)}
-                >
-                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
-                  {t("edit")}
-                </Button>
-                <button
-                  onClick={() => setPreview(null)}
-                  className="h-8 w-8 rounded-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
               </div>
             </div>
-
-            {/* Slide */}
-            <div
-              className="relative flex items-center justify-center w-full max-w-lg px-16"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {total > 1 && (
-                <button
-                  onClick={() => setPreview((p) => p && p.slideIdx > 0 ? { ...p, slideIdx: p.slideIdx - 1 } : p)}
-                  disabled={slideIdx === 0}
-                  className="absolute left-2 h-10 w-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 disabled:opacity-20 transition-all"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-              )}
-              <div className="w-full aspect-3/4 rounded-xl overflow-hidden shadow-2xl">
-                {slide && (
-                  <SlideRenderer
-                    html={slide.html}
-                    aspectRatio={pc.aspectRatio}
-                    className="w-full h-full"
-                    {...rendererProps}
-                  />
-                )}
-              </div>
-              {total > 1 && (
-                <button
-                  onClick={() => setPreview((p) => p && p.slideIdx < p.carousel.slides.length - 1 ? { ...p, slideIdx: p.slideIdx + 1 } : p)}
-                  disabled={slideIdx === total - 1}
-                  className="absolute right-2 h-10 w-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 disabled:opacity-20 transition-all"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              )}
-            </div>
-
-            {/* Slide dots */}
-            {total > 1 && (
-              <div className="flex gap-1.5 mt-4" onClick={(e) => e.stopPropagation()}>
-                {pc.slides.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setPreview((p) => p ? { ...p, slideIdx: i } : p)}
-                    className={`h-1.5 rounded-full transition-all ${i === slideIdx ? "w-4 bg-white" : "w-1.5 bg-white/40 hover:bg-white/70"}`}
-                  />
-                ))}
-              </div>
-            )}
           </div>
         );
       })()}
@@ -244,7 +266,7 @@ export default function PostsGridDetailPage() {
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-1">
-              {carousels.map((carousel) => (
+              {carousels.map((carousel, idx) => (
                 <div
                   key={carousel.id}
                   onClick={() => setPreview({ carousel, slideIdx: 0 })}
@@ -263,6 +285,11 @@ export default function PostsGridDetailPage() {
                       <Layers className="h-6 w-6 text-muted-foreground/30" />
                     </div>
                   )}
+
+                  {/* Publish order badge — top-left, always visible */}
+                  <div className="absolute top-1.5 left-1.5 h-5 w-5 rounded-full bg-black/70 text-white text-[10px] font-bold flex items-center justify-center z-10">
+                    {carousels.length - idx}
+                  </div>
 
                   {/* Slide count badge — always visible, bottom-left */}
                   {carousel.kind !== "post" && carousel.slides.length > 1 && (

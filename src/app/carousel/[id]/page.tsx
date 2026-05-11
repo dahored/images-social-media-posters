@@ -580,7 +580,14 @@ export default function CarouselEditorPage({ params }: PageProps) {
               chatInputRef={chatInputRef}
               autoSendMessage={autoSendMessage}
               onAutoSendConsumed={() => setAutoSendMessage(undefined)}
-              silentSend={{ message: "Regenera este slide manteniendo estilo, paleta de marca y estructura semántica (mismas role classes). Genera una variación con un fraseo o disposición distinta.", nonce: silentSendNonce }}
+              silentSend={{
+                message: (() => {
+                  const slide = carousel.slides[activeSlide];
+                  if (!slide) return "Regenera el carousel completo con variaciones de texto.";
+                  return `Regenera SOLO el slide con ID ${slide.id} (slide ${activeSlide + 1} de ${carousel.slides.length}). Mantén el estilo visual, la paleta de colores y la estructura semántica exacta (mismas role classes, mismo número de slots). Cambia únicamente el texto y opcionalmente detalles decorativos para generar una variación. No toques ningún otro slide.`;
+                })(),
+                nonce: silentSendNonce,
+              }}
               theme={carousel.brandingOverride?.theme ?? "dark"}
               aspectRatio={carousel.aspectRatio}
               onCommitChanges={async (ratio, theme) => {

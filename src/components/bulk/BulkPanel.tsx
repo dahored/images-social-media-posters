@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ArrowRight, AlertCircle, CheckCircle2, Sparkles, Copy, Check, Circle } from "lucide-react";
+import { Loader2, ArrowRight, AlertCircle, CheckCircle2, Sparkles, Copy, Check, Circle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/context";
 import { useBranding } from "@/lib/hooks/useBranding";
@@ -182,6 +182,83 @@ export function BulkPanel() {
     setGeneratedCarousels([]);
     setErrors([]);
   };
+
+  const retryCell = useCallback(async (position: number) => {
+    if (!selectedGrid || !content.trim()) return;
+
+    setCellProgress((prev) =>
+      prev.map((c) =>
+        c.position === position ? { ...c, status: "generating" as CellStatus, error: undefined, result: undefined } : c
+      )
+    );
+    setErrors((prev) => prev.filter((e) => e.position !== position));
+    setStep("generating");
+
+    const accountId = localStorage.getItem("activeAccountId") ?? undefined;
+    const res = await fetch("/api/bulk/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gridId: selectedGrid.id, content, accountId, positions: [position] }),
+    });
+
+    if (!res.body) {
+      setCellProgress((prev) => {
+        if (prev.every((c) => c.status === "done" || c.status === "error")) setTimeout(() => setStep("done"), 0);
+        return prev;
+      });
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const messages = buffer.split("\n\n");
+      buffer = messages.pop() ?? "";
+
+      for (const msg of messages) {
+        const eventMatch = msg.match(/^event: (.+)$/m);
+        const dataMatch = msg.match(/^data: (.+)$/m);
+        if (!dataMatch) continue;
+        const event = eventMatch?.[1] ?? "message";
+        let data: Record<string, unknown>;
+        try { data = JSON.parse(dataMatch[1]); } catch { continue; }
+
+        if (event === "progress") {
+          const { position: pos, status, carousel, error } = data as {
+            position: number;
+            status: CellStatus;
+            carousel?: { id: string; name: string };
+            error?: string;
+          };
+          setCellProgress((prev) =>
+            prev.map((c) =>
+              c.position === pos ? { ...c, status, result: carousel, error } : c
+            )
+          );
+          if (status === "done" && carousel) {
+            setGeneratedCarousels((prev) =>
+              prev.some((c) => c.id === carousel.id) ? prev : [...prev, carousel]
+            );
+          }
+          if (status === "error" && error) {
+            setErrors((prev) => [...prev.filter((e) => e.position !== pos), { position: pos, error }]);
+          }
+        }
+      }
+    }
+
+    setCellProgress((current) => {
+      if (current.every((c) => c.status === "done" || c.status === "error")) {
+        setTimeout(() => setStep("done"), 0);
+      }
+      return current;
+    });
+  }, [selectedGrid, content]);
 
   if (step === "pick-grid") {
     return (
@@ -425,9 +502,18 @@ export function BulkPanel() {
                 {cell.status === "generating" && <Loader2 className="h-4 w-4 text-accent animate-spin" />}
                 {cell.status === "done" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
                 {cell.status === "error" && (
-                  <span title={cell.error}>
-                    <AlertCircle className="h-4 w-4 text-destructive" />
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span title={cell.error}>
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                    </span>
+                    <button
+                      onClick={() => retryCell(cell.position)}
+                      className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
+                      title="Reintentar"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -473,8 +559,20 @@ export function BulkPanel() {
         {errors.length > 0 && (
           <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 mb-4 text-xs">
             <p className="font-medium mb-1">{t("bulkErrorsTitle")}</p>
-            <ul className="space-y-0.5 text-muted-foreground">
-              {errors.map((e, i) => <li key={i}>· #{e.position + 1}: {e.error}</li>)}
+            <ul className="space-y-1 text-muted-foreground">
+              {errors.map((e, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <span className="flex-1">· #{e.position + 1}: {e.error}</span>
+                  <button
+                    onClick={() => retryCell(e.position)}
+                    className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-accent hover:bg-accent/10 transition-colors font-medium"
+                    title="Reintentar"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    {t("retry")}
+                  </button>
+                </li>
+              ))}
             </ul>
           </div>
         )}
