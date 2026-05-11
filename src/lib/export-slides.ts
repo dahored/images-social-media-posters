@@ -185,7 +185,8 @@ export async function exportSlide(
     // Settle time for glyph painting
     await new Promise((r) => setTimeout(r, 400));
 
-    const screenshotBuffer = await page.screenshot({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const screenshotBuffer = await (page.screenshot as any)({
       type: "png",
       clip: { x: 0, y: 0, width, height },
       timeout: 60000,

@@ -79,28 +79,68 @@ function stripFromTemplateSuffix(name: string): string {
   return name.replace(/\s*\(from template\)\s*$/i, "").trim() || name;
 }
 
-const ROLE_PLACEHOLDER: Record<SlotRole, string> = {
-  "title":          "[Título]",
-  "subtitle":       "[Subtítulo]",
-  "body":           "[Cuerpo del texto]",
-  "quote":          "[Frase o cita]",
-  "list-item":      "[Elemento de lista]",
-  "section-title":  "[Título de sección]",
-  "section-body":   "[Texto de sección]",
-  "cta":            "[Llamada a la acción]",
+// Full Lorem Ipsum corpus — long enough to generate any slot length
+const LOREM_WORDS = "lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua enim ad minim veniam quis nostrud exercitation ullamco laboris nisi aliquip ex ea commodo consequat duis aute irure reprehenderit voluptate velit esse cillum fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt culpa qui officia deserunt mollit anim est laborum".split(" ");
+
+// Minimum word counts per role so the layout never looks too empty
+const ROLE_MIN_WORDS: Record<SlotRole, number> = {
+  "title":         3,
+  "subtitle":      3,
+  "body":          8,
+  "quote":         5,
+  "list-item":     2,
+  "section-title": 2,
+  "section-body":  6,
+  "cta":           2,
 };
 
 /**
- * Replace each slot's text with a role-based placeholder.
- * Preserves all visual styles, colors, fonts, and layout — only text changes.
- * This ensures templates describe STRUCTURE, not topic-specific content.
+ * Generate Lorem Ipsum text that matches the approximate character length of the
+ * original slot text. Wraps a portion in {{accent}} markers when the slot has an
+ * accent span, so the template preserves that visual element.
+ */
+function loremForSlot(slot: { role: SlotRole; text: string; hasAccent: boolean }): string {
+  const minWords = ROLE_MIN_WORDS[slot.role] ?? 2;
+  const targetChars = Math.max(slot.text.length, minWords * 5);
+
+  // Build Lorem Ipsum until we hit the target char count
+  let words: string[] = [];
+  let len = 0;
+  let i = 0;
+  while (len < targetChars || words.length < minWords) {
+    const w = LOREM_WORDS[i % LOREM_WORDS.length];
+    words.push(w);
+    len += w.length + 1;
+    i++;
+    if (i > 200) break; // safety
+  }
+
+  let result = words.join(" ");
+  result = result.charAt(0).toUpperCase() + result.slice(1);
+
+  // Wrap last 1-2 words in accent markers to preserve the accent span structure
+  if (slot.hasAccent && words.length >= 3) {
+    const accentStart = words.length - (words.length > 5 ? 2 : 1);
+    const plain = words.slice(0, accentStart).join(" ");
+    const accented = words.slice(accentStart).join(" ");
+    result = `${plain.charAt(0).toUpperCase()}${plain.slice(1)} {{accent}}${accented}{{/accent}}`;
+  }
+
+  return result;
+}
+
+/**
+ * Replace each slot's text with Lorem Ipsum of similar length.
+ * Preserves all visual styles, colors, fonts, layout, and accent spans —
+ * only the topic-specific text changes. This makes templates look like
+ * realistic structural previews rather than labeled placeholders.
  */
 function anonymizeSlideHtml(html: string): string {
   const { slots } = extractSlots(html);
   if (slots.length === 0) return html;
   const fills: Record<string, string> = {};
   for (const slot of slots) {
-    fills[slot.id] = ROLE_PLACEHOLDER[slot.role] ?? "[Texto]";
+    fills[slot.id] = loremForSlot(slot);
   }
   return fillSlots(html, fills);
 }
