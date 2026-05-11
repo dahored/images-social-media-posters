@@ -15,6 +15,7 @@ export interface Template {
   accountId?: string;
   brandingOverride?: CarouselBrandingOverride;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface TemplatesData {

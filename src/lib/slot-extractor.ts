@@ -123,12 +123,25 @@ export function extractSlots(slideHtml: string): SlotSchema {
     // Has accent if this element itself OR any descendant carries slide-accent
     const selfAccent = hasAccentClass(cls);
     const descendantAccent = $el.find(".slide-accent").length > 0;
+    const hasAccent = selfAccent || descendantAccent;
+
+    // Capture the accent text for position-aware Lorem Ipsum generation
+    let accentText: string | undefined;
+    if (hasAccent) {
+      if (selfAccent && !descendantAccent) {
+        accentText = text; // the element itself is the accent
+      } else {
+        const accentEl = $el.find(".slide-accent").first();
+        if (accentEl.length > 0) accentText = cleanText(accentEl.text());
+      }
+    }
 
     slots.push({
       id,
       role,
       text,
-      hasAccent: selfAccent || descendantAccent,
+      hasAccent,
+      accentText,
       order,
       parentSectionId,
     });

@@ -68,6 +68,7 @@ export async function saveAsTemplate(
     accountId: carousel.accountId,
     ...(buildBrandingOverride(carousel)),
     createdAt: now(),
+    updatedAt: now(),
   };
   data.templates.push(template);
   await save(data);
@@ -96,15 +97,16 @@ const ROLE_MIN_WORDS: Record<SlotRole, number> = {
 
 /**
  * Generate Lorem Ipsum text that matches the approximate character length of the
- * original slot text. Wraps a portion in {{accent}} markers when the slot has an
- * accent span, so the template preserves that visual element.
+ * original slot text. Wraps a portion in {{accent}} markers at the same proportional
+ * position as the original accent span, so the template preview looks structurally
+ * faithful — not just "accent always at the end".
  */
-function loremForSlot(slot: { role: SlotRole; text: string; hasAccent: boolean }): string {
+function loremForSlot(slot: { role: SlotRole; text: string; hasAccent: boolean; accentText?: string }): string {
   const minWords = ROLE_MIN_WORDS[slot.role] ?? 2;
   const targetChars = Math.max(slot.text.length, minWords * 5);
 
   // Build Lorem Ipsum until we hit the target char count
-  let words: string[] = [];
+  const words: string[] = [];
   let len = 0;
   let i = 0;
   while (len < targetChars || words.length < minWords) {
@@ -115,17 +117,36 @@ function loremForSlot(slot: { role: SlotRole; text: string; hasAccent: boolean }
     if (i > 200) break; // safety
   }
 
-  let result = words.join(" ");
-  result = result.charAt(0).toUpperCase() + result.slice(1);
-
-  // Wrap last 1-2 words in accent markers to preserve the accent span structure
-  if (slot.hasAccent && words.length >= 3) {
-    const accentStart = words.length - (words.length > 5 ? 2 : 1);
-    const plain = words.slice(0, accentStart).join(" ");
-    const accented = words.slice(accentStart).join(" ");
-    result = `${plain.charAt(0).toUpperCase()}${plain.slice(1)} {{accent}}${accented}{{/accent}}`;
+  if (!slot.hasAccent || words.length < 3) {
+    const result = words.join(" ");
+    return result.charAt(0).toUpperCase() + result.slice(1);
   }
 
+  // Calculate the accent's proportional position in the original text so the
+  // Lorem Ipsum accent lands at the same relative point, not always at the end.
+  let accentStartRatio = 0.65; // fallback: 65% through
+  let accentLengthRatio = 0.2;  // fallback: 20% of total
+
+  if (slot.accentText && slot.text.length > 0) {
+    const idx = slot.text.indexOf(slot.accentText);
+    if (idx >= 0) {
+      accentStartRatio = idx / slot.text.length;
+      accentLengthRatio = slot.accentText.length / slot.text.length;
+    }
+  }
+
+  // Map ratios to word indices, clamping to valid ranges
+  const accentStartWord = Math.max(1, Math.floor(accentStartRatio * words.length));
+  const accentWordCount = Math.max(1, Math.round(accentLengthRatio * words.length));
+  const accentEndWord = Math.min(words.length - 1, accentStartWord + accentWordCount);
+
+  const before  = words.slice(0, accentStartWord).join(" ");
+  const accented = words.slice(accentStartWord, accentEndWord).join(" ");
+  const after   = words.slice(accentEndWord).join(" ");
+
+  let result = before.charAt(0).toUpperCase() + before.slice(1);
+  result += ` {{accent}}${accented}{{/accent}}`;
+  if (after) result += ` ${after}`;
   return result;
 }
 
@@ -167,6 +188,7 @@ export async function updateTemplateFromCarousel(
     })),
     tags: carousel.tags,
     ...buildBrandingOverride(carousel),
+    updatedAt: now(),
   };
   await save(data);
   return data.templates[idx];

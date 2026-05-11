@@ -22,6 +22,8 @@ export interface SlideSlot {
   text: string;
   /** True if the element itself (or its only meaningful child) carries class="slide-accent". */
   hasAccent: boolean;
+  /** Text content of the accent span, if present. Used to calculate accent position ratio. */
+  accentText?: string;
   /** Order in document. */
   order: number;
   /** id of the parent slot if this slot is nested inside a slide-section-* element. */
