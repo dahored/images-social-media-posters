@@ -336,6 +336,34 @@ Every text or CTA element must carry exactly ONE base role class. The system use
 </div>
 \`\`\`
 
+### Paired / two-column layouts — ALWAYS use CSS Grid for symmetry
+
+When a slide has multiple **paired items** (label + description, rule + consequence, term + definition, left badge + right text, pros + cons), ALL pairs MUST live inside a **single** \`display:grid\` container so every row shares the same column widths:
+
+\`\`\`html
+<!-- ✅ CORRECT — one grid container, consistent columns across all rows -->
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 24px 16px; align-items: start;">
+  <div class="slide-section-title slide-accent" style="background:${activePalette.accent}; padding:10px 14px; border-radius:6px; font-family:'${brand.fonts.heading}'">Regla 1</div>
+  <div class="slide-body" style="font-family:'${brand.fonts.body}'">Consecuencia 1</div>
+  <div class="slide-section-title slide-accent" style="background:${activePalette.accent}; padding:10px 14px; border-radius:6px; font-family:'${brand.fonts.heading}'">Regla 2</div>
+  <div class="slide-body" style="font-family:'${brand.fonts.body}'">Consecuencia 2</div>
+</div>
+
+<!-- ❌ WRONG — separate flex row per pair: left-column widths vary row to row, looks uneven -->
+<div style="display:flex; gap:12px;"><div>Regla 1</div><div>Consecuencia 1</div></div>
+<div style="display:flex; gap:12px;"><div>Regla 2 más larga</div><div>Consecuencia 2</div></div>
+\`\`\`
+
+**Column sizing guide:**
+| Pattern | grid-template-columns | When to use |
+|---------|----------------------|-------------|
+| Equal halves | \`1fr 1fr\` | Symmetric badges, balanced weight |
+| Heavy description | \`2fr 3fr\` | Label shorter than description |
+| Very heavy description | \`1fr 2fr\` | Short label + long multi-line description |
+| Avoid \`auto 1fr\` for paired labels | — | auto sizes to the widest row only in multi-row CSS Grid tracks; may look uneven |
+
+**This rule applies to:** rule/consequence lists, term/definition glossaries, pro/con slides, label+detail pairs, left-badge + right-text layouts, any slide where items appear side-by-side across multiple rows. Never use individual flexbox rows per pair in these cases.
+
 ### Typography sizing
 - Max 2 font families per carousel
 - Line height: 1.2 for headings (\`slide-title\`, \`slide-quote\`, \`slide-section-title\`, \`slide-cta\`), 1.5 for body (\`slide-body\`, \`slide-list-item\`, \`slide-section-body\`)
