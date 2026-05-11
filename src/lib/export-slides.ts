@@ -12,6 +12,20 @@ let browser: Browser | null = null;
 let exportCount = 0;
 const MAX_EXPORTS_BEFORE_RESTART = 50;
 
+async function launchBrowser(): Promise<Browser> {
+  return puppeteer.launch({
+    headless: true,
+    protocolTimeout: 300000,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-gpu",
+      "--font-render-hinting=none",
+      "--disable-dev-shm-usage",
+    ],
+  });
+}
+
 async function getBrowser(): Promise<Browser> {
   if (browser && exportCount >= MAX_EXPORTS_BEFORE_RESTART) {
     await browser.close().catch(() => {});
@@ -19,19 +33,18 @@ async function getBrowser(): Promise<Browser> {
     exportCount = 0;
   }
   if (!browser || !browser.isConnected()) {
-    browser = await puppeteer.launch({
-      headless: true,
-      protocolTimeout: 180000,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-gpu",
-        "--font-render-hinting=none",
-      ],
-    });
+    browser = await launchBrowser();
     exportCount = 0;
   }
   return browser;
+}
+
+/** Kill the current browser so the next getBrowser() call gets a fresh one. */
+async function resetBrowser(): Promise<void> {
+  const b = browser;
+  browser = null;
+  exportCount = 0;
+  if (b) await b.close().catch(() => {});
 }
 
 /**
@@ -76,6 +89,29 @@ async function inlineImages(html: string): Promise<string> {
  * produces 5-20MB HTML documents that cause Chromium to hang and timeout.
  */
 const cssCache = new Map<string, string>();
+
+// Noto Color Emoji CSS from Google Fonts — kept as url() refs so Puppeteer fetches
+// only the needed unicode-range subsets at render time (full font is ~10MB, too large to inline)
+let notoEmojiCssCache: string | null = null;
+async function fetchNotoEmojiCss(): Promise<string> {
+  if (notoEmojiCssCache !== null) return notoEmojiCssCache;
+  try {
+    const res = await fetch(
+      "https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=block",
+      {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+        signal: AbortSignal.timeout(8000),
+      }
+    );
+    notoEmojiCssCache = res.ok ? await res.text() : "";
+  } catch {
+    notoEmojiCssCache = "";
+  }
+  return notoEmojiCssCache;
+}
+
 async function inlineExternalCss(html: string): Promise<string> {
   const linkRegex = /<link\b[^>]*\brel=["']stylesheet["'][^>]*\bhref=["'](https?:\/\/[^"']+)["'][^>]*\/?>/gi;
   const matches = [...html.matchAll(linkRegex)];
@@ -115,6 +151,77 @@ async function inlineImagePath(imgPath: string): Promise<string> {
 /**
  * Export a single slide to PNG buffer.
  */
+async function exportSlideOnce(
+  fullHtml: string,
+  width: number,
+  height: number,
+): Promise<Buffer> {
+  const br = await getBrowser();
+  const page = await br.newPage();
+
+  try {
+    await page.setViewport({ width, height, deviceScaleFactor: 1 });
+    await page.setContent(fullHtml, { waitUntil: "load", timeout: 30000 });
+
+    // Patch 1: symbol glyphs — inject symbol font into inline-styled elements using serif/sans-serif.
+    // Patch 2: emoji — inject 'Noto Color Emoji' into ALL text elements via getComputedStyle so
+    // class-styled elements are also covered. Noto Color Emoji is defined via @font-face in the
+    // page HTML with url() refs; Puppeteer fetches only the needed unicode-range subsets.
+    await page.evaluate(() => {
+      const SYM = '"Noto Sans Symbols 2", "Apple Symbols", "Segoe UI Symbol", "Noto Sans Symbols", "DejaVu Sans"';
+
+      // Symbol patch (inline styles only)
+      document.querySelectorAll<HTMLElement>("[style]").forEach((el) => {
+        const ff = el.style.fontFamily;
+        if (!ff) return;
+        if (/\b(serif|sans-serif)\b/i.test(ff) && !ff.includes("Apple Symbols")) {
+          el.style.fontFamily = ff.replace(/\b(serif|sans-serif)\b/gi, `${SYM}, $1`);
+        }
+      });
+
+      // Emoji patch — use computedStyle to also handle class-based font declarations
+      document.querySelectorAll<HTMLElement>("p, h1, h2, h3, h4, h5, h6, span, li, [style]").forEach((el) => {
+        const ff = window.getComputedStyle(el).fontFamily;
+        if (ff && !ff.includes("Noto Color Emoji")) {
+          el.style.fontFamily = ff + ', "Noto Color Emoji", emoji';
+        }
+      });
+    }).catch(() => {});
+
+    // Trigger Noto Color Emoji loading for the actual emoji characters present on this page.
+    // Passing the emoji text arg ensures the browser fetches the correct unicode-range subsets.
+    await page.evaluate(async () => {
+      const allText = document.body.innerText;
+      const emojiChars = [...new Set([...allText].filter(c => {
+        const cp = c.codePointAt(0) ?? 0;
+        return (cp >= 0x1F000 && cp <= 0x1FFFF) || (cp >= 0x2300 && cp <= 0x27BF) || cp === 0x2B50 || cp === 0x2B55;
+      }))].join('');
+      await document.fonts.load(`16px "Noto Color Emoji"`, emojiChars || '😀').catch(() => {});
+    }).catch(() => {});
+
+    // Wait for all fonts to finish loading (includes the Noto Color Emoji subsets Puppeteer is fetching)
+    await page.waitForFunction(
+      () => document.fonts.ready.then(() => true),
+      { timeout: 15000 }
+    ).catch(() => {});
+
+    // Settle time for glyph painting
+    await new Promise((r) => setTimeout(r, 400));
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const screenshotBuffer = await (page.screenshot as any)({
+      type: "png",
+      clip: { x: 0, y: 0, width, height },
+      timeout: 90000,
+    });
+
+    exportCount++;
+    return screenshotBuffer as Buffer;
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
 export async function exportSlide(
   slide: Slide,
   aspectRatio: AspectRatio,
@@ -132,9 +239,15 @@ export async function exportSlide(
   // Get inlined font CSS (after substitution so new font names are included).
   // Always include Noto Sans Symbols 2 — covers Dingbats, special symbols, and other
   // Unicode ranges that generic fonts (serif, sans-serif) miss in headless Chromium.
+  // Exclude 'Noto Color Emoji' from base64-inline — it's loaded separately via CSS url() refs.
   const fontFamilies = extractFontFamilies(processedHtml);
   if (!fontFamilies.includes("Noto Sans Symbols 2")) fontFamilies.push("Noto Sans Symbols 2");
-  const inlinedFontCss = await getInlinedFontCSS(fontFamilies);
+  const familiesToInline = fontFamilies.filter((f) => f !== "Noto Color Emoji");
+  const inlinedFontCss = await getInlinedFontCSS(familiesToInline);
+
+  // Fetch Noto Color Emoji CSS from Google Fonts — keeps url() refs so Puppeteer fetches
+  // only the needed unicode-range subsets at render time via its own network stack.
+  const notoEmojiCss = await fetchNotoEmojiCss();
 
   // Inline images and external CDN stylesheets (icon fonts, etc.)
   const inlinedHtml = await inlineExternalCss(await inlineImages(processedHtml));
@@ -145,7 +258,7 @@ export async function exportSlide(
   // Build self-contained HTML (substitutions already applied — don't re-apply).
   // Pass fontRoles so wrapSlideHtml injects .slide-title / .slide-body CSS for class-based targeting.
   const fullHtml = wrapSlideHtml(inlinedHtml, aspectRatio, {
-    inlineFontCss: inlinedFontCss,
+    inlineFontCss: inlinedFontCss + notoEmojiCss,
     logoConfig: inlinedLogoConfig,
     customBackground: customBackground ?? slide.styleOverride?.customBackground,
     fontRoles: fontSubstitution
@@ -154,55 +267,18 @@ export async function exportSlide(
     accentOverride,
   });
 
-  const br = await getBrowser();
-  const page = await br.newPage();
-
   try {
-    await page.setViewport({ width, height, deviceScaleFactor: 1 });
-    await page.setContent(fullHtml, { waitUntil: "load", timeout: 30000 });
-
-    // Patch generic font-family values (serif, sans-serif) in inline styles to include
-    // system symbol/dingbat fonts before the generic family. This ensures characters like
-    // U+275D (❝), Dingbats, and other special glyphs render correctly in headless Chromium,
-    // which has a weaker font fallback chain than the full browser.
-    await page.evaluate(() => {
-      const SYM = '"Noto Sans Symbols 2", "Apple Symbols", "Segoe UI Symbol", "Noto Sans Symbols", "DejaVu Sans"';
-      document.querySelectorAll<HTMLElement>("[style]").forEach((el) => {
-        const ff = el.style.fontFamily;
-        if (!ff) return;
-        if (/\b(serif|sans-serif)\b/i.test(ff) && !ff.includes("Apple Symbols")) {
-          el.style.fontFamily = ff.replace(/\b(serif|sans-serif)\b/gi, `${SYM}, $1`);
-        }
-      });
-    }).catch(() => {});
-
-    // Wait for fonts to be ready after DOM patch (includes CDN icon font files).
-    await page.waitForFunction(
-      () => document.fonts.ready.then(() => true),
-      { timeout: 15000 }
-    ).catch(() => {});
-
-    // Settle time for glyph painting
-    await new Promise((r) => setTimeout(r, 400));
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const screenshotBuffer = await (page.screenshot as any)({
-      type: "png",
-      clip: { x: 0, y: 0, width, height },
-      timeout: 60000,
-    });
-
-    exportCount++;
-
-    // Post-process with Sharp: enforce sRGB
-    const processed = await sharp(screenshotBuffer)
-      .toColorspace("srgb")
-      .png()
-      .toBuffer();
-
-    return processed;
-  } finally {
-    await page.close().catch(() => {});
+    const screenshotBuffer = await exportSlideOnce(fullHtml, width, height);
+    return await sharp(screenshotBuffer).toColorspace("srgb").png().toBuffer();
+  } catch (err) {
+    // On any CDP/browser error, kill the browser and retry once with a fresh instance
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("timed out") || msg.includes("Protocol error") || msg.includes("Session closed") || msg.includes("Target closed")) {
+      await resetBrowser();
+      const screenshotBuffer = await exportSlideOnce(fullHtml, width, height);
+      return await sharp(screenshotBuffer).toColorspace("srgb").png().toBuffer();
+    }
+    throw err;
   }
 }
 
@@ -227,7 +303,7 @@ export async function exportAllSlides(
   onProgress?: (current: number, total: number) => void
 ): Promise<{ name: string; buffer: Buffer }[]> {
   const results: { name: string; buffer: Buffer }[] = [];
-  const CONCURRENCY = 3;
+  const CONCURRENCY = 2;
 
   for (let i = 0; i < slides.length; i += CONCURRENCY) {
     const batch = slides.slice(i, i + CONCURRENCY);

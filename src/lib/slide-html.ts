@@ -160,6 +160,26 @@ export function preprocessSlideHtml(
   return result;
 }
 
+/**
+ * Inject 'Noto Color Emoji' into every font-family declaration in HTML (inline styles + <style> blocks).
+ * Placed before the trailing generic family keyword so it takes priority over the OS default emoji font
+ * (Apple Color Emoji on macOS, Segoe UI Emoji on Windows) in both browser iframes and Puppeteer exports.
+ */
+function injectNotoEmojiFont(html: string): string {
+  return html.replace(
+    /font-family\s*:\s*[^;};"]+/gi,
+    (match) => {
+      if (/noto color emoji/i.test(match)) return match;
+      const trimmed = match.trimEnd();
+      const withNoto = trimmed.replace(
+        /,?\s*(sans-serif|serif|monospace|emoji)\s*$/i,
+        `, 'Noto Color Emoji', $1`
+      );
+      return withNoto !== trimmed ? withNoto : trimmed + ", 'Noto Color Emoji'";
+    }
+  );
+}
+
 export function wrapSlideHtml(
   slideHtml: string,
   aspectRatio: AspectRatio,
@@ -202,8 +222,8 @@ export function wrapSlideHtml(
     : "";
 
   const fontRoleCss = [
-    headingTarget ? `.slide-title { font-family: '${headingTarget}', sans-serif !important; }` : "",
-    bodyTarget    ? `.slide-body  { font-family: '${bodyTarget}', sans-serif !important; }` : "",
+    headingTarget ? `.slide-title { font-family: '${headingTarget}', 'Noto Color Emoji', sans-serif !important; }` : "",
+    bodyTarget    ? `.slide-body  { font-family: '${bodyTarget}', 'Noto Color Emoji', sans-serif !important; }` : "",
     accentCss,
   ].filter(Boolean).join("\n    ");
 
@@ -225,6 +245,10 @@ export function wrapSlideHtml(
     // Always include a Google Fonts link so fonts load even if inlining failed/was partial
     fontBlock = `<link href="https://fonts.googleapis.com/css2?${params}&display=swap" rel="stylesheet">`;
   }
+  // Always load Noto Color Emoji so emoji render consistently in iframes and Puppeteer exports
+  const notoEmojiLink = `<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=block" rel="stylesheet">`;
+  fontBlock = fontBlock ? `${fontBlock}\n  ${notoEmojiLink}` : notoEmojiLink;
+
   if (options?.inlineFontCss) {
     // Inlined CSS takes priority (instant load, no network round-trip) but the link above acts as fallback
     fontBlock = `<style>${options.inlineFontCss}</style>\n  ${fontBlock}`;
@@ -298,6 +322,10 @@ export function wrapSlideHtml(
       }
     );
   }
+
+  // Inject 'Noto Color Emoji' into all font-family declarations so emoji render from Noto in both
+  // browser iframes (preview) and Puppeteer (export) instead of falling back to the OS emoji font.
+  cleanSlideHtml = injectNotoEmojiFont(cleanSlideHtml);
 
   const baseTag = options?.baseHref ? `<base href="${options.baseHref}">` : "";
 

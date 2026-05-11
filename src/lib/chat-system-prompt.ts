@@ -265,7 +265,7 @@ Each slide is BODY-LEVEL HTML only. No <!DOCTYPE>, <html>, <head>, or <body> tag
 
 1. **ROOT ELEMENT**: A single root div set to exact dimensions: width:${dimensions.width}px; height:${dimensions.height}px; overflow:hidden
 2. Inline styles or <style> tags only — no external CSS
-3. Font-family declarations auto-load Google Fonts (e.g., font-family: 'Playfair Display', serif)
+3. Font-family declarations auto-load Google Fonts (e.g., font-family: 'Playfair Display', serif). **When using emoji characters** (🎮, ✅, ❤️, etc.), ALWAYS add \`'Noto Color Emoji'\` to the font-family so they render in exports: e.g., \`font-family: '${effectiveFonts.body}', 'Noto Color Emoji', sans-serif\`
 4. **MANDATORY color mapping** — use EXACTLY these hex values, never invent other colors:
    - \`background-color\` of root div and main backgrounds → **${activePalette.primary}**
    - \`color\` property for ALL text (headings, paragraphs, labels, numbers) → **${activePalette.background}**
