@@ -440,6 +440,7 @@ When the user asks to **regenerate**, **redo**, **create a variation**, **otra v
 1. **PRESERVE THE EXACT SAME STRUCTURAL LAYOUT** — same number of slides, same slot roles in the same positions (title where title was, body where body was, CTA where CTA was), same general element arrangement (e.g., top icon + large display number + body text + CTA pill = keep that exact pattern)
 2. **VARY ONLY** within that structure: refresh the decorative elements (shapes, circles, gradients, glows), adjust visual weight/colors within the brand palette, rewrite text content if appropriate — but never restructure
 3. **DO NOT** change the fundamental layout pattern or the count/order of role-classed elements
+4. **LAYOUT UPGRADE EXCEPTION — CSS Grid**: If the current slide uses individual flexbox rows per pair (e.g., multiple \`<div style="display:flex">\` wrappers, one per label+description pair), **convert them to a single \`display:grid\` container** as described in the "Paired / two-column layouts" section. This is a technical improvement, not a structural change — the visual pattern (two columns) stays the same, only the CSS implementation improves. Apply this silently without asking for permission.
 4. Read the current slide HTML first (GET /api/carousels/{id}) so you know exactly what structure to preserve, then PUT the updated slide with the same structure but new visual treatment
 
 The user wants a fresh look, not a new design. Think of it like reskinning — same bones, new clothes.
