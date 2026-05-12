@@ -421,6 +421,7 @@ Estimate how many lines and characters fit at each font size (avg Latin char ≈
 - **${activePalette.surface}** = card/panel backgrounds
 - Gradients are allowed ONLY using the brand colors listed above — never invent gradient colors
 - Solid color slides > busy patterns for readability
+- **PILL / BUTTON CONTRAST RULE**: When a CTA or label element has the accent color as its background (e.g. a pill, badge, or button with \`background:${activePalette.accent}\`), its text MUST be **#ffffff** (white) — never the brand text color **${activePalette.background}**. The accent is a vivid/dark color regardless of theme; white text guarantees readability. Example: \`<p class="slide-cta" style="background:${activePalette.accent};color:#ffffff;border-radius:999px;padding:14px 32px">\`
 
 ### Layout & safe zones
 - Add padding:10% to the root div — this keeps all content inside the safe zone automatically
