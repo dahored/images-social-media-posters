@@ -99,6 +99,7 @@ export async function duplicateCarousel(id: string): Promise<Carousel | null> {
     referenceImages: [...(source.referenceImages || [])],
     chatSessionId: null,
     isTemplate: false,
+    sourceGridId: undefined,
     createdAt: now(),
     updatedAt: now(),
   };
