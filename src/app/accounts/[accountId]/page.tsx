@@ -24,6 +24,7 @@ export default function AccountSettingsPage({ params }: PageProps) {
   const [displayName, setDisplayName] = useState("");
   const [handle, setHandle] = useState("");
   const [telegramChatId, setTelegramChatId] = useState("");
+  const [language, setLanguage] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -35,6 +36,7 @@ export default function AccountSettingsPage({ params }: PageProps) {
       setDisplayName(ad.displayName || "");
       setHandle(ad.handle || "");
       setTelegramChatId(ad.telegramChatId || "");
+      setLanguage(ad.language || "");
       setNetworks(nd.networks || []);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -45,7 +47,7 @@ export default function AccountSettingsPage({ params }: PageProps) {
     const res = await fetch(`/api/accounts/${accountId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ displayName, handle, telegramChatId: telegramChatId || undefined }),
+      body: JSON.stringify({ displayName, handle, telegramChatId: telegramChatId || undefined, language: language || undefined }),
     });
     if (res.ok) {
       const updated = await res.json();
@@ -123,6 +125,35 @@ export default function AccountSettingsPage({ params }: PageProps) {
               />
               <p className="text-[11px] text-muted-foreground mt-1">
                 {t("accountTelegramChatIdHelp")}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                Idioma de los posts
+              </label>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Automático (según el contenido)</option>
+                <option value="Spanish">Español</option>
+                <option value="English">English</option>
+                <option value="Portuguese">Português</option>
+                <option value="French">Français</option>
+                <option value="German">Deutsch</option>
+                <option value="Italian">Italiano</option>
+                <option value="Dutch">Nederlands</option>
+                <option value="Polish">Polski</option>
+                <option value="Turkish">Türkçe</option>
+                <option value="Arabic">العربية</option>
+                <option value="Japanese">日本語</option>
+                <option value="Korean">한국어</option>
+                <option value="Chinese">中文简体</option>
+              </select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                El AI generará todos los textos de los slides en este idioma.
               </p>
             </div>
 

@@ -9,7 +9,8 @@ export function buildSystemPrompt(
   brand: BrandConfig,
   carousel?: Carousel | null,
   stylePreset?: StylePreset | null,
-  network?: Network | null
+  network?: Network | null,
+  language?: string | null
 ): string {
   const isPost = carousel?.kind === "post";
 
@@ -123,6 +124,11 @@ ${hasRefImages ? `
 ## ⚠️ MANDATORY FIRST STEP — Reference images present
 BEFORE creating any slides, use the Read tool to view each image below. Extract the content structure from the image: number of text blocks, headings, bullets, cards, and their arrangement. Replicate that content structure faithfully — do NOT add new text sections, cards, or content blocks not visible in the reference. Decorative elements (shapes, backgrounds, glows) may be adapted freely. DO NOT copy colors, fonts, or visual style — apply brand identity on top of the extracted structure.
 ${carousel.referenceImages.map((r) => `- Read: ${r.absPath}  (display name: "${r.name}")`).join("\n")}` : ""}${lockedBlock}`
+    : "";
+
+  const languageSection = language
+    ? `## Content language — MANDATORY
+Generate ALL text in **${language}**: slide titles, subtitles, body text, CTAs, labels, captions, hashtags — every user-facing string. Do not mix languages.`
     : "";
 
   const networkSection = network
@@ -250,6 +256,8 @@ curl -s -X POST http://localhost:3000/api/style-presets \\
 ${logoInstruction}
 
 ${brandSection}
+
+${languageSection}
 
 ${networkSection}
 

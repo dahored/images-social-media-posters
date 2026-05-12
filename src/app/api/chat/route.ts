@@ -7,7 +7,7 @@ import { getBrand } from "@/lib/brand";
 import { getCarousel } from "@/lib/carousels";
 import { getPreset } from "@/lib/style-presets";
 import { getNetwork } from "@/lib/networks";
-import { getEffectiveBranding } from "@/lib/accounts";
+import { getEffectiveBranding, getAccount } from "@/lib/accounts";
 import type { BrandConfig } from "@/types/brand";
 
 export const runtime = "nodejs";
@@ -56,7 +56,10 @@ export async function POST(request: NextRequest) {
     stylePresetId ? getPreset(stylePresetId) : Promise.resolve(null),
   ]);
 
-  const effectiveBranding = accountId ? await getEffectiveBranding(accountId) : null;
+  const [effectiveBranding, account] = await Promise.all([
+    accountId ? getEffectiveBranding(accountId) : Promise.resolve(null),
+    accountId ? getAccount(accountId) : Promise.resolve(null),
+  ]);
   const brandForPrompt: BrandConfig = effectiveBranding
     ? {
         ...legacyBrand,
@@ -75,7 +78,7 @@ export async function POST(request: NextRequest) {
 
   const networkId = carousel?.networkId;
   const network = networkId ? await getNetwork(networkId) : null;
-  const systemPrompt = buildSystemPrompt(brandForPrompt, carousel, stylePreset, network);
+  const systemPrompt = buildSystemPrompt(brandForPrompt, carousel, stylePreset, network, account?.language);
 
   const claudePath = getClaudePath();
   const abortController = new AbortController();

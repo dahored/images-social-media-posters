@@ -15,6 +15,7 @@ export interface Account {
   displayName: string;
   brandingOverride?: AccountBrandingOverride;
   telegramChatId?: string;
+  language?: string;
   createdAt: string;
   updatedAt: string;
 }
