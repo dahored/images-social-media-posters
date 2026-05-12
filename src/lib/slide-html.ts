@@ -171,11 +171,17 @@ function injectNotoEmojiFont(html: string): string {
     (match) => {
       if (/noto color emoji/i.test(match)) return match;
       const trimmed = match.trimEnd();
+      // 'Noto Sans Symbols 2' must come BEFORE 'Noto Color Emoji':
+      // both claim the Dingbats range (U+2700-U+27BF). Noto Color Emoji lacks
+      // proper glyphs for ornaments like ❝ (U+275D) and renders them as boxes,
+      // while Noto Sans Symbols 2 renders them correctly. For actual emoji
+      // (U+1F000+) Noto Sans Symbols 2 has no glyphs, so Noto Color Emoji
+      // handles them as the next fallback.
       const withNoto = trimmed.replace(
         /,?\s*(sans-serif|serif|monospace|emoji)\s*$/i,
-        `, 'Noto Color Emoji', $1`
+        `, 'Noto Sans Symbols 2', 'Noto Color Emoji', $1`
       );
-      return withNoto !== trimmed ? withNoto : trimmed + ", 'Noto Color Emoji'";
+      return withNoto !== trimmed ? withNoto : trimmed + ", 'Noto Sans Symbols 2', 'Noto Color Emoji'";
     }
   );
 }
@@ -245,9 +251,14 @@ export function wrapSlideHtml(
     // Always include a Google Fonts link so fonts load even if inlining failed/was partial
     fontBlock = `<link href="https://fonts.googleapis.com/css2?${params}&display=swap" rel="stylesheet">`;
   }
-  // Always load Noto Color Emoji so emoji render consistently in iframes and Puppeteer exports
-  const notoEmojiLink = `<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=block" rel="stylesheet">`;
-  fontBlock = fontBlock ? `${fontBlock}\n  ${notoEmojiLink}` : notoEmojiLink;
+  // Always load Noto Sans Symbols 2 + Noto Color Emoji so symbols and emoji render consistently.
+  // Symbols 2 must come first in the link order (same as font-family order) so the browser
+  // prefers it for ornament characters (❝ U+275D, etc.) over Noto Color Emoji.
+  const notoLinksBlock = [
+    `<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&display=block" rel="stylesheet">`,
+    `<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=block" rel="stylesheet">`,
+  ].join("\n  ");
+  fontBlock = fontBlock ? `${fontBlock}\n  ${notoLinksBlock}` : notoLinksBlock;
 
   if (options?.inlineFontCss) {
     // Inlined CSS takes priority (instant load, no network round-trip) but the link above acts as fallback

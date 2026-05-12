@@ -163,21 +163,24 @@ async function exportSlideOnce(
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
     await page.setContent(fullHtml, { waitUntil: "load", timeout: 30000 });
 
-    // Combined symbol + emoji font patch using getComputedStyle so BOTH inline-styled and
-    // class-styled elements get the fallback fonts. The previous symbol patch only covered
-    // [style] elements, so decorative Unicode characters (e.g. ❝ U+275D quotation ornaments)
-    // rendered as boxes when the element used a CSS class instead of an inline font-family.
+    // Font fallback patch: ensure every text element has 'Noto Sans Symbols 2' (ornaments, dingbats)
+    // BEFORE 'Noto Color Emoji' (emoji). wrapSlideHtml already injects both in the correct order
+    // into font-family declarations in the HTML, but elements using only class-based styles won't
+    // have them yet — getComputedStyle picks those up. Order matters: Symbols 2 before Emoji so
+    // ❝ (U+275D) and similar ornaments don't fall to Noto Color Emoji which lacks proper glyphs.
     await page.evaluate(() => {
-      const SYM = '"Noto Sans Symbols 2", "Apple Symbols", "Segoe UI Symbol", "Noto Sans Symbols", "DejaVu Sans"';
-
       document.querySelectorAll<HTMLElement>("p, h1, h2, h3, h4, h5, h6, span, li, div, [style], [class]").forEach((el) => {
         const ff = window.getComputedStyle(el).fontFamily;
         if (!ff) return;
         let next = ff;
-        if (!ff.includes("Noto Sans Symbols 2") && !ff.includes("Apple Symbols")) {
-          next += `, ${SYM}`;
+        // Insert Noto Sans Symbols 2 before Noto Color Emoji (if not already present)
+        if (!ff.includes("Noto Sans Symbols 2")) {
+          const insertBefore = ff.includes("Noto Color Emoji")
+            ? ff.replace(/"Noto Color Emoji"/, '"Noto Sans Symbols 2", "Noto Color Emoji"')
+            : null;
+          next = insertBefore ?? (ff + ', "Noto Sans Symbols 2", "Apple Symbols", "Segoe UI Symbol"');
         }
-        if (!ff.includes("Noto Color Emoji")) {
+        if (!next.includes("Noto Color Emoji")) {
           next += ', "Noto Color Emoji", emoji';
         }
         if (next !== ff) el.style.fontFamily = next;
