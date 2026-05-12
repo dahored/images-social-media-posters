@@ -163,28 +163,24 @@ async function exportSlideOnce(
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
     await page.setContent(fullHtml, { waitUntil: "load", timeout: 30000 });
 
-    // Patch 1: symbol glyphs — inject symbol font into inline-styled elements using serif/sans-serif.
-    // Patch 2: emoji — inject 'Noto Color Emoji' into ALL text elements via getComputedStyle so
-    // class-styled elements are also covered. Noto Color Emoji is defined via @font-face in the
-    // page HTML with url() refs; Puppeteer fetches only the needed unicode-range subsets.
+    // Combined symbol + emoji font patch using getComputedStyle so BOTH inline-styled and
+    // class-styled elements get the fallback fonts. The previous symbol patch only covered
+    // [style] elements, so decorative Unicode characters (e.g. ❝ U+275D quotation ornaments)
+    // rendered as boxes when the element used a CSS class instead of an inline font-family.
     await page.evaluate(() => {
       const SYM = '"Noto Sans Symbols 2", "Apple Symbols", "Segoe UI Symbol", "Noto Sans Symbols", "DejaVu Sans"';
 
-      // Symbol patch (inline styles only)
-      document.querySelectorAll<HTMLElement>("[style]").forEach((el) => {
-        const ff = el.style.fontFamily;
-        if (!ff) return;
-        if (/\b(serif|sans-serif)\b/i.test(ff) && !ff.includes("Apple Symbols")) {
-          el.style.fontFamily = ff.replace(/\b(serif|sans-serif)\b/gi, `${SYM}, $1`);
-        }
-      });
-
-      // Emoji patch — use computedStyle to also handle class-based font declarations
-      document.querySelectorAll<HTMLElement>("p, h1, h2, h3, h4, h5, h6, span, li, [style]").forEach((el) => {
+      document.querySelectorAll<HTMLElement>("p, h1, h2, h3, h4, h5, h6, span, li, div, [style], [class]").forEach((el) => {
         const ff = window.getComputedStyle(el).fontFamily;
-        if (ff && !ff.includes("Noto Color Emoji")) {
-          el.style.fontFamily = ff + ', "Noto Color Emoji", emoji';
+        if (!ff) return;
+        let next = ff;
+        if (!ff.includes("Noto Sans Symbols 2") && !ff.includes("Apple Symbols")) {
+          next += `, ${SYM}`;
         }
+        if (!ff.includes("Noto Color Emoji")) {
+          next += ', "Noto Color Emoji", emoji';
+        }
+        if (next !== ff) el.style.fontFamily = next;
       });
     }).catch(() => {});
 
