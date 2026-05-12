@@ -45,19 +45,45 @@ export function MyPostsGridTab({ carousels, loading, reloadKey, getSlideRenderer
   const gridById = new Map(grids.map((g) => [g.id, g]));
   const bulkCarousels = carousels.filter((c) => !!c.sourceGridId);
 
-  const groups: { grid: Grid | null; gridId: string; items: Carousel[] }[] = [];
-  const seen = new Map<string, number>();
-  const sorted = [...bulkCarousels].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-  );
-  for (const c of sorted) {
+  // Build per-grid groups
+  const gridGroupMap = new Map<string, { grid: Grid | null; items: Carousel[] }>();
+  for (const c of bulkCarousels) {
     const gid = c.sourceGridId!;
-    if (!seen.has(gid)) {
-      seen.set(gid, groups.length);
-      groups.push({ grid: gridById.get(gid) ?? null, gridId: gid, items: [] });
-    }
-    groups[seen.get(gid)!].items.push(c);
+    if (!gridGroupMap.has(gid)) gridGroupMap.set(gid, { grid: gridById.get(gid) ?? null, items: [] });
+    gridGroupMap.get(gid)!.items.push(c);
   }
+
+  // Sort by grid.createdAt most recent first
+  const sortedGroups = [...gridGroupMap.entries()]
+    .sort(([, a], [, b]) => new Date(b.grid?.createdAt ?? 0).getTime() - new Date(a.grid?.createdAt ?? 0).getTime())
+    .map(([gridId, g]) => ({ gridId, ...g }));
+
+  function getDateKey(dateStr: string): string {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const todayStr = now.toDateString();
+    const yest = new Date(now); yest.setDate(now.getDate() - 1);
+    if (d.toDateString() === todayStr) return "__today__";
+    if (d.toDateString() === yest.toDateString()) return "__yesterday__";
+    return d.toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
+  }
+
+  // Group sorted grids by creation date
+  type GridGroup = { gridId: string; grid: Grid | null; items: Carousel[] };
+  const dateGroups: { label: string; key: string; groups: GridGroup[] }[] = [];
+  const seenDate = new Map<string, number>();
+  for (const g of sortedGroups) {
+    const key = getDateKey(g.grid?.createdAt ?? "");
+    if (!seenDate.has(key)) {
+      seenDate.set(key, dateGroups.length);
+      const label = key === "__today__" ? t("today") : key === "__yesterday__" ? t("yesterday") : key;
+      dateGroups.push({ label, key, groups: [] });
+    }
+    dateGroups[seenDate.get(key)!].groups.push(g);
+  }
+
+  // Legacy flat list for empty check
+  const groups = sortedGroups;
 
   const handleDeleteGroup = (e: React.MouseEvent, _gridId: string, gridName: string, items: Carousel[]) => {
     e.stopPropagation();
@@ -110,61 +136,75 @@ export function MyPostsGridTab({ carousels, loading, reloadKey, getSlideRenderer
         onConfirm={confirmState.onConfirm}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {groups.map(({ grid, gridId, items }) => {
-          const preview = items.slice(0, 9);
-          const cols = 3;
-          const rows = Math.min(3, Math.ceil(Math.max(preview.length, 1) / cols));
-          const slots = cols * rows;
-          const gridName = grid?.name ?? gridId;
-          return (
-            <div
-              key={gridId}
-              className="relative rounded-xl border border-border bg-surface p-4 hover:border-accent hover:shadow-md transition-all group cursor-pointer"
-              onClick={() => router.push(`/content/my-posts-grid/${gridId}`)}
-            >
-              {/* Delete button */}
-              <button
-                onClick={(e) => handleDeleteGroup(e, gridId, gridName, items)}
-                className="absolute top-3 right-3 h-7 w-7 rounded-lg flex items-center justify-center bg-white border border-border hover:bg-destructive hover:text-white hover:border-destructive opacity-0 group-hover:opacity-100 transition-all z-10"
-                aria-label="Eliminar"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+      <div className="space-y-8">
+        {dateGroups.map(({ label, key, groups: dateGroupItems }) => (
+          <div key={key}>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              {label}
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {dateGroupItems.map(({ grid, gridId, items }) => {
+                const preview = items.slice(0, 9);
+                const cols = 3;
+                const rows = Math.min(3, Math.ceil(Math.max(preview.length, 1) / cols));
+                const slots = cols * rows;
+                const gridName = grid?.name ?? gridId;
+                return (
+                  <div
+                    key={gridId}
+                    className="relative rounded-xl border border-border bg-surface p-4 hover:border-accent hover:shadow-md transition-all group cursor-pointer"
+                    onClick={() => router.push(`/content/my-posts-grid/${gridId}`)}
+                  >
+                    {/* Delete button */}
+                    <button
+                      onClick={(e) => handleDeleteGroup(e, gridId, gridName, items)}
+                      className="absolute top-3 right-3 h-7 w-7 rounded-lg flex items-center justify-center bg-white border border-border hover:bg-destructive hover:text-white hover:border-destructive opacity-0 group-hover:opacity-100 transition-all z-10"
+                      aria-label="Eliminar"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
 
-              {/* Mini grid preview */}
-              <div
-                className="rounded-lg overflow-hidden mb-3 grid gap-0.5 bg-muted"
-                style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
-              >
-                {Array.from({ length: slots }).map((_, i) => {
-                  const carousel = preview[i];
-                  return (
-                    <div key={i} className="aspect-square bg-muted/50 overflow-hidden">
-                      {carousel?.slides[0] ? (
-                        <SlideRenderer
-                          key={`${carousel.id}-${reloadKey}`}
-                          html={carousel.slides[0].html}
-                          aspectRatio={carousel.aspectRatio}
-                          className="w-full h-full"
-                          {...getSlideRendererProps(carousel)}
-                        />
-                      ) : carousel ? (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Layers className="h-4 w-4 text-muted-foreground/30" />
-                        </div>
-                      ) : null}
+                    {/* Mini grid preview */}
+                    <div
+                      className="rounded-lg overflow-hidden mb-3 grid gap-0.5 bg-muted"
+                      style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
+                    >
+                      {Array.from({ length: slots }).map((_, i) => {
+                        const carousel = preview[i];
+                        return (
+                          <div key={i} className="aspect-square bg-muted/50 overflow-hidden">
+                            {carousel?.slides[0] ? (
+                              <SlideRenderer
+                                key={`${carousel.id}-${reloadKey}`}
+                                html={carousel.slides[0].html}
+                                aspectRatio={carousel.aspectRatio}
+                                className="w-full h-full"
+                                {...getSlideRendererProps(carousel)}
+                              />
+                            ) : carousel ? (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Layers className="h-4 w-4 text-muted-foreground/30" />
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </div>
-              <h3 className="font-semibold text-sm truncate pr-6">{gridName}</h3>
-              <p className="text-xs text-muted-foreground mt-0.5 mb-2">
-                {items.length} {t(items.length === 1 ? "post" : "posts")}
-              </p>
+                    <h3 className="font-semibold text-sm truncate pr-6">{gridName}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {items.length} {t(items.length === 1 ? "post" : "posts")}
+                      {grid?.createdAt && (
+                        <span className="ml-2 opacity-60">
+                          · {new Date(grid.createdAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </>
   );
