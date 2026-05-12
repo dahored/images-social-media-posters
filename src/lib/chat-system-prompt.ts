@@ -282,6 +282,24 @@ Each slide is BODY-LEVEL HTML only. No <!DOCTYPE>, <html>, <head>, or <body> tag
 7. Images: /uploads/{filename} paths only
 8. NO JavaScript (sandbox blocks it)
 9. Use flexbox/grid for layout; position:absolute is fine for decorative overlays
+10. **DECORATIVE SYMBOLS — USE SVG OR CSS, NEVER UNICODE CHARACTERS**: Any decorative glyph (quotation ornaments, stars, arrows, checkmarks, geometric shapes) MUST be drawn with inline SVG or CSS — never a Unicode character typed in a text node. Unicode glyphs depend on font coverage and render as empty boxes in Puppeteer headless exports.
+
+    Inline SVG examples (copy and adapt):
+
+    Decorative opening quote:
+    <svg style="position:absolute;top:40px;right:48px;opacity:0.12" width="90" height="72" viewBox="0 0 90 72" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M0 72V44C0 20 12 6 36 0l6 10C24 14 18 24 18 36h18v36H0zm48 0V44C48 20 60 6 84 0l6 10C72 14 66 24 66 36h18v36H48z"/></svg>
+
+    Star:
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><polygon points="16,2 20,12 31,12 22,19 25,30 16,23 7,30 10,19 1,12 12,12"/></svg>
+
+    Arrow right:
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/></svg>
+
+    Checkmark:
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+
+    CSS-only dot: <div style="width:10px;height:10px;border-radius:50%;background:currentColor"></div>
+    CSS triangle right: <div style="width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:14px solid currentColor"></div>
 10. **STACKING / Z-INDEX — CRITICAL**: Decorative absolutely-positioned elements (circles, glows, gradient overlays, dots, grids, geometric shapes, watermarks) MUST sit BEHIND content. Two ways to ensure this — apply BOTH:
    - **DOM order**: place ALL decorative absolute-positioned elements as the FIRST children of the root div, BEFORE any content (text, cards, lists). Content comes AFTER decorations.
    - **Explicit z-index**: every text-containing or content element (anything with a \`slide-*\` role class, or its wrapping container) gets \`position: relative; z-index: 1\` minimum. Decorative shapes get \`z-index: 0\` (or omit it — default 0 is fine if DOM order is correct).
