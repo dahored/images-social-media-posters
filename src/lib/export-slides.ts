@@ -259,7 +259,7 @@ export async function exportSlide(
   const fullHtml = wrapSlideHtml(inlinedHtml, aspectRatio, {
     inlineFontCss: inlinedFontCss + notoEmojiCss,
     logoConfig: inlinedLogoConfig,
-    customBackground: customBackground ?? slide.styleOverride?.customBackground,
+    customBackground: customBackground,
     fontRoles: fontSubstitution
       ? { heading: fontSubstitution.heading?.to, body: fontSubstitution.body?.to }
       : undefined,

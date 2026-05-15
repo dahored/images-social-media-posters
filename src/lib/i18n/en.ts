@@ -111,6 +111,7 @@ export const en = {
   stepFonts: "Fonts",
   stepLogo: "Logo",
   stepStyle: "Style",
+  themeDefault: "Default",
   themeDark: "Dark",
   themeLight: "Light",
   logoDark: "Logo (light backgrounds)",
@@ -181,6 +182,7 @@ export const en = {
 
   // Bulk (Masivo)
   bulk: "Bulk",
+  bulkSubtitle: "Batch content",
   bulkPickGridHint: "Pick a grid to distribute your content into.",
   bulkNoGrids: "No grids in this account",
   bulkCreateGridFirst: "Create a grid first in the Grids tab to start distributing content.",
@@ -442,7 +444,7 @@ export const en = {
   slideRestoreOriginalBg: "Restore original background",
   slideRestoreAutoLogo: "Restore auto",
   slideColorPrimary: "Slide background",
-  slideColorSecondary: "Secondary shade",
+  slideColorSecondary: "Decorative / Accessories",
   slideColorAccent: "Accent / Highlight",
   slideColorBackground: "Text color",
   slideColorSurface: "Panel / Surface",

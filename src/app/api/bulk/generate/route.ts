@@ -11,13 +11,13 @@ import type { BulkCellPlan } from "@/types/bulk";
 import type { EffectiveBranding } from "@/types/account";
 import type { CarouselBrandingOverride } from "@/types/carousel";
 
-function detectThemeFromHtml(html: string | undefined): "dark" | "light" {
+function detectThemeFromHtml(html: string | undefined): "default" | "light" {
   const bg = detectSlideRootBackground(html ?? "");
-  if (!bg) return "dark";
+  if (!bg) return "default";
   const r = parseInt(bg.slice(1, 3), 16);
   const g = parseInt(bg.slice(3, 5), 16);
   const b = parseInt(bg.slice(5, 7), 16);
-  return 0.299 * r + 0.587 * g + 0.114 * b > 128 ? "light" : "dark";
+  return 0.299 * r + 0.587 * g + 0.114 * b > 128 ? "light" : "default";
 }
 
 export const runtime = "nodejs";
@@ -130,6 +130,8 @@ export async function POST(request: Request) {
           positions?: number[];
         };
 
+        const bulkRunId = crypto.randomUUID();
+
         if (!body.gridId || typeof body.content !== "string") {
           send(controller, "error", { message: "gridId and content required" });
           controller.close();
@@ -159,6 +161,7 @@ export async function POST(request: Request) {
         // Only send plan on full generation (not retries — client manages its own state)
         if (!isRetry) {
           send(controller, "plan", {
+            bulkRunId,
             cells: preview.cells.map((c) => ({
               position: c.position,
               templateName: c.templateName,
@@ -260,6 +263,7 @@ export async function POST(request: Request) {
             templateId: tpl.id,
             templateLocked: true,
             sourceGridId: body.gridId,
+            bulkRunId,
           });
           const final = await getCarousel(carousel.id);
           if (final) {

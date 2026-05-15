@@ -1,10 +1,10 @@
 export type AspectRatio = "1:1" | "4:5" | "9:16";
 export type ContentKind = "post" | "carousel";
 
-import type { LogoPosition } from "./brand";
+import type { LogoPosition, BrandColors } from "./brand";
 
 export interface CarouselBrandingOverride {
-  theme?: "dark" | "light";
+  theme?: "dark" | "light" | "default";
   logoPosition?: LogoPosition;
   logoHeight?: number;
   colors?: {
@@ -49,12 +49,16 @@ export interface Slide {
   order: number;
   notes: string;
   styleOverride?: {
-    theme?: "dark" | "light";
-    colors?: SlideColorSet;
-    colorsLight?: SlideColorSet;
-    fonts?: { heading?: string; body?: string };
-    logoPath?: string;        // override for dark theme
-    logoPathLight?: string;   // override for light theme
+    theme?: "dark" | "light" | "default";
+    colors?: SlideColorSet;      // default theme overrides
+    colorsDark?: SlideColorSet;  // dark theme overrides (independent from default)
+    colorsLight?: SlideColorSet; // light theme overrides
+    fonts?: { heading?: string; body?: string };      // default theme font overrides
+    fontsDark?: { heading?: string; body?: string };  // dark theme font overrides
+    fontsLight?: { heading?: string; body?: string }; // light theme font overrides
+    logoPath?: string;       // logo override for default theme
+    logoPathDark?: string;   // logo override for dark theme (light-colored logo on dark bg)
+    logoPathLight?: string;  // logo override for light theme (dark-colored logo on light bg)
     logoPosition?: LogoPosition;
     logoHeight?: number;
     customBackground?: string;
@@ -91,6 +95,14 @@ export interface Carousel {
   templateLocked?: boolean;
   /** Grid that originated this carousel via the Masivo (bulk) flow. */
   sourceGridId?: string;
+  /** Unique ID for a single bulk generation run. All carousels from the same run share this. */
+  bulkRunId?: string;
+  /**
+   * The merged brand palette that was active when slides were last AI-generated.
+   * Used as the `from` base for color substitution so the correct hex values are
+   * replaced even if the brand palette is updated after generation.
+   */
+  generationPalette?: BrandColors;
   /** Planned publication date/time (ISO 8601). Time portion is optional. */
   scheduledAt?: string;
   createdAt: string;

@@ -43,7 +43,7 @@ function buildBrandingOverride(carousel: Carousel): { brandingOverride?: Carouse
   if (firstSlideTheme) return { brandingOverride: { theme: firstSlideTheme } };
   const firstHtml = carousel.slides[0]?.html;
   const bg = firstHtml ? detectSlideRootBackground(firstHtml) : null;
-  const theme: "light" | "dark" = bg && hexBrightness(bg) > 128 ? "light" : "dark";
+  const theme: "light" | "default" = bg && hexBrightness(bg) > 128 ? "light" : "default";
   return { brandingOverride: { theme } };
 }
 
@@ -160,11 +160,14 @@ function loremForSlot(slot: { role: SlotRole; text: string; hasAccent: boolean; 
  * only the topic-specific text changes. This makes templates look like
  * realistic structural previews rather than labeled placeholders.
  */
+const NUMERIC_SLOT_RE = /^\d{1,3}\.?$/;
+
 function anonymizeSlideHtml(html: string): string {
   const { slots } = extractSlots(html);
   if (slots.length === 0) return html;
   const fills: Record<string, string> = {};
   for (const slot of slots) {
+    if (NUMERIC_SLOT_RE.test(slot.text.trim())) continue;
     fills[slot.id] = loremForSlot(slot);
   }
   return fillSlots(html, fills);

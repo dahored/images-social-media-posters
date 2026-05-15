@@ -22,30 +22,46 @@ export function buildSystemPrompt(
     ...(brand.colorsLight ?? {}),
     ...(carousel?.brandingOverride?.colorsLight ?? {}),
   };
+  const activeThemeEarly = carousel?.brandingOverride?.theme ?? "default";
+  const brandFontsForTheme =
+    activeThemeEarly === "light" ? (brand.fontsLight ?? brand.fonts)
+    : activeThemeEarly === "dark"  ? (brand.fontsDark  ?? brand.fonts)
+    : brand.fonts;
   const effectiveFonts = {
-    ...brand.fonts,
+    ...brandFontsForTheme,
     ...(carousel?.brandingOverride?.fonts ?? {}),
   };
 
-  const activeTheme = carousel?.brandingOverride?.theme ?? "dark";
-  // For light theme: merge light overrides on top of dark base so the AI always gets a complete palette.
-  // Colors not configured in the light palette fall back to their dark counterparts.
-  const activePalette = activeTheme === "dark"
-    ? effectiveColorsDark
-    : { ...effectiveColorsDark, ...effectiveColorsLight };
+  const activeTheme = activeThemeEarly;
+  // Resolve active palette: default → brand.colors, dark → brand.colorsDark ?? colors, light → colorsLight merged on top
+  const effectiveColorsDarkVariant = { ...brand.colors, ...(brand.colorsDark ?? {}), ...(carousel?.brandingOverride?.colors ?? {}) };
+  const activePalette =
+    activeTheme === "light"
+      ? { ...effectiveColorsDark, ...effectiveColorsLight }
+      : activeTheme === "dark"
+        ? effectiveColorsDarkVariant
+        : effectiveColorsDark;
+  // light theme → dark logo (readable on light bg); default/dark → light logo
   const activeLogo =
-    activeTheme === "dark"
-      ? (brand.logoPathLight ?? brand.logoPath ?? "none")
-      : (brand.logoPathDark ?? brand.logoPath ?? "none");
+    activeTheme === "light"
+      ? (brand.logoPathDark  ?? brand.logoPath ?? "none")
+      : (brand.logoPathLight ?? brand.logoPath ?? "none");
+
+  const themeNote =
+    activeTheme === "light"
+      ? " — design for a light, bright visual feel (light backgrounds, dark readable text)"
+      : activeTheme === "dark"
+        ? " — design for a dark, high-contrast visual feel"
+        : "";
 
   const brandSection = brand.name
     ? `## Brand identity${carousel?.brandingOverride ? " (colors/fonts overridden for this post)" : ""}
 - Name: ${brand.name}
-- **Active theme: ${activeTheme.toUpperCase()}**${activeTheme === "light" ? " — design for a light, bright visual feel (light backgrounds, dark readable text)" : ""}
-- **Logo to use in ALL slides: ${activeLogo}** (${activeTheme === "dark" ? "light logo for dark background" : "dark logo for light background"})
+- **Active theme: ${activeTheme.toUpperCase()}**${themeNote}
+- **Logo to use in ALL slides: ${activeLogo}** (${activeTheme === "light" ? "dark logo for light background" : "light logo for dark background"})
 - **Brand colors — USE ONLY THESE hex values, never invent other colors:**
   - Slide background (primary): **${activePalette.primary}**
-  - Secondary shade: **${activePalette.secondary}**
+  - Decorative accessories ONLY (shapes, dots, borders, glows — NEVER text): **${activePalette.secondary}**
   - Accent / highlight: **${activePalette.accent}**
   - Text / foreground color: **${activePalette.background}**
   - Panel / surface color: **${activePalette.surface}**
@@ -278,7 +294,7 @@ Each slide is BODY-LEVEL HTML only. No <!DOCTYPE>, <html>, <head>, or <body> tag
    - \`background-color\` of root div and main backgrounds → **${activePalette.primary}**
    - \`color\` property for ALL text (headings, paragraphs, labels, numbers) → **${activePalette.background}**
    - Accent / CTA / highlight elements → **${activePalette.accent}**
-   - Secondary decorative tones → **${activePalette.secondary}**
+   - Decorative shapes / dots / borders / glows ONLY → **${activePalette.secondary}** ⚠️ NEVER use this for text color — not for headings, not for highlights, not for CTA text — decorations and accessories only
    - Cards / panels / surface backgrounds → **${activePalette.surface}**
    - Heading font: **"${brand.fonts.heading}"** — write exactly this string in font-family inline styles for heading-role elements
    - Body font: **"${brand.fonts.body}"** — write exactly this string in font-family inline styles for body-role elements
@@ -310,30 +326,46 @@ Each slide is BODY-LEVEL HTML only. No <!DOCTYPE>, <html>, <head>, or <body> tag
     CSS triangle right: <div style="width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:14px solid currentColor"></div>
 10. **STACKING / Z-INDEX — CRITICAL**: Decorative absolutely-positioned elements (circles, glows, gradient overlays, dots, grids, geometric shapes, watermarks) MUST sit BEHIND content. Two ways to ensure this — apply BOTH:
    - **DOM order**: place ALL decorative absolute-positioned elements as the FIRST children of the root div, BEFORE any content (text, cards, lists). Content comes AFTER decorations.
-   - **Explicit z-index**: every text-containing or content element (anything with a \`slide-*\` role class, or its wrapping container) gets \`position: relative; z-index: 1\` minimum. Decorative shapes get \`z-index: 0\` (or omit it — default 0 is fine if DOM order is correct).
+   - **Explicit z-index**: every text-containing or content element (anything with a \`slide-*\` role class, or its wrapping container) gets \`position: relative; z-index: 1\` minimum. Decorative shapes (class="slide-secondary") get \`z-index: 0\` (or omit it — default 0 is fine if DOM order is correct).
    - Cards/panels (with \`slide-section-*\` content) MUST have \`position: relative; z-index: 1\` so their entire bounding box (including the surface background) sits above decorations.
    - **Test mentally**: if a decorative shape extends into the area where text sits, that text would be obscured unless the text has a higher z-index. Don't rely on luck — ALWAYS layer content above decorations.
 
+11. **slide-secondary on decorative shapes — MANDATORY**: Every div/span/svg used as a decorative or accessory element MUST have class="slide-secondary". This is how the theming system remaps those elements to the correct color when the user switches themes. If you omit it, the shape keeps its hardcoded color and breaks the theme.
+    Examples:
+    \`\`\`html
+    <!-- Pixel grid overlay -->
+    <div class="slide-secondary" style="position:absolute;top:60px;right:60px;opacity:0.3;background:${activePalette.secondary};width:80px;height:80px"></div>
+    <!-- Decorative circle -->
+    <div class="slide-secondary" style="position:absolute;bottom:120px;left:-20px;width:160px;height:160px;border-radius:50%;background:${activePalette.secondary};opacity:0.15"></div>
+    <!-- SVG decorative shape -->
+    <svg class="slide-secondary" style="position:absolute;..." fill="${activePalette.secondary}">...</svg>
+    <!-- Info card background -->
+    <div class="slide-surface" style="background:${activePalette.surface};border-radius:12px;padding:20px">...</div>
+    \`\`\`
+
 ## Design intelligence
 
-### Semantic role classes — REQUIRED on every text/CTA element
+### Semantic role classes — REQUIRED on every element
 
-Every text or CTA element must carry exactly ONE base role class. The system uses these classes for per-role font control, accent overrides, and bulk-content distribution. Slides that omit them lose those capabilities.
+Every element — text, CTA, decorative shape, card, surface — must carry exactly ONE base role class. The system uses these classes for per-role color control, font control, and bulk-content distribution. Slides that omit them lose those capabilities.
 
-| Class | Use for | Font role |
+| Class | Use for | Color role |
 |-------|---------|-----------|
-| \`slide-title\` | Main slide heading, hook, hero display, top-level headline | heading |
-| \`slide-subtitle\` | Secondary heading, kicker line above/below title, tag, label-eyebrow | heading or body |
-| \`slide-body\` | Paragraph, description, supporting prose | body |
-| \`slide-quote\` | Standalone quoted phrase, pull quote, slogan, "...""..." citations | heading (italic ok) |
-| \`slide-list-item\` | Each bullet/numbered item in a list (\`<li>\` or \`<div>\` items in a list block) | body |
-| \`slide-section-title\` | Title inside a card/box/sub-block within the slide | heading |
-| \`slide-section-body\` | Body text inside a card/box/sub-block | body |
-| \`slide-cta\` | Call-to-action text — button label, "Swipe →", "Comenta GG", urgency line | heading |
-| \`slide-accent\` | Add IN ADDITION to one of the above when the element's text color is the accent (**${activePalette.accent}**) | (any) |
+| \`slide-title\` | Main slide heading, hook, hero display, top-level headline | text (${activePalette.background}) |
+| \`slide-subtitle\` | Secondary heading, kicker line above/below title, tag, label-eyebrow | text (${activePalette.background}) |
+| \`slide-body\` | Paragraph, description, supporting prose | text (${activePalette.background}) |
+| \`slide-quote\` | Standalone quoted phrase, pull quote, slogan, citations | text (${activePalette.background}) |
+| \`slide-list-item\` | Each bullet/numbered item in a list | text (${activePalette.background}) |
+| \`slide-section-title\` | Title inside a card/box/sub-block within the slide | text (${activePalette.background}) |
+| \`slide-section-body\` | Body text inside a card/box/sub-block | text (${activePalette.background}) |
+| \`slide-cta\` | Call-to-action text — button label, "Swipe →", "Comenta GG", urgency line | text (${activePalette.background}) |
+| \`slide-secondary\` | **REQUIRED on ALL decorative elements**: shapes, dots, grids, borders, glows, geometric overlays, pixel art, pattern divs, decorative SVGs — any element whose role is purely decorative (not text content) | background/fill (${activePalette.secondary}) |
+| \`slide-surface\` | Card backgrounds, panel backgrounds, info-box backgrounds, any visually distinct sub-area with its own background | background (${activePalette.surface}) |
+| \`slide-accent\` | Add IN ADDITION to one of the above when the element uses the accent color (**${activePalette.accent}**) — text or background | accent (${activePalette.accent}) |
 
 **Rules**:
-- ONE base role per element. Plain decorative wrappers (no text) don't need a role class.
+- ONE base role per element — NO exceptions. Every div, span, p, li, svg must have a slide-* class.
+- \`slide-secondary\` is for decorative/accessory elements ONLY — not text. Every decorative shape div MUST have this class.
 - Combine with \`slide-accent\` when the text uses the accent color: \`<span class="slide-title slide-accent" style="color:${activePalette.accent}">build</span>\`
 - Use \`slide-section-*\` only when content sits inside a visually distinct card/panel (background, border, padding). Otherwise use the top-level role.
 - Font: \`slide-title\`, \`slide-quote\`, \`slide-section-title\`, \`slide-cta\` → \`"${brand.fonts.heading}"\`. \`slide-body\`, \`slide-list-item\`, \`slide-section-body\` → \`"${brand.fonts.body}"\`. \`slide-subtitle\` defaults to heading; use body for kickers under hero text.
@@ -426,6 +458,7 @@ Estimate how many lines and characters fit at each font size (avg Latin char ≈
 - **${activePalette.primary}** = main background (background-color of root and layout containers)
 - **${activePalette.background}** = all text (color: on every text element, always)
 - **${activePalette.accent}** = CTAs, highlights, decorative accents only
+- **${activePalette.secondary}** = shapes, dots, borders, glows, geometric accessories — **NEVER text color**
 - **${activePalette.surface}** = card/panel backgrounds
 - Gradients are allowed ONLY using the brand colors listed above — never invent gradient colors
 - Solid color slides > busy patterns for readability

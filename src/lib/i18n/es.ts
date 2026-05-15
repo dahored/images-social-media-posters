@@ -113,6 +113,7 @@ export const es: Record<TranslationKey, string> = {
   stepFonts: "Fuentes",
   stepLogo: "Logo",
   stepStyle: "Estilo",
+  themeDefault: "Default",
   themeDark: "Oscuro",
   themeLight: "Claro",
   logoDark: "Logo (fondos claros)",
@@ -183,6 +184,7 @@ export const es: Record<TranslationKey, string> = {
 
   // Masivo (Bulk)
   bulk: "Masivo",
+  bulkSubtitle: "Contenido en lote",
   bulkPickGridHint: "Elige un grid donde distribuir tu contenido.",
   bulkNoGrids: "No hay grids en esta cuenta",
   bulkCreateGridFirst: "Crea un grid primero en la pestaña Grids para empezar a distribuir contenido.",
@@ -444,7 +446,7 @@ export const es: Record<TranslationKey, string> = {
   slideRestoreOriginalBg: "Restaurar fondo original",
   slideRestoreAutoLogo: "Restaurar automático",
   slideColorPrimary: "Fondo del slide",
-  slideColorSecondary: "Tono secundario",
+  slideColorSecondary: "Accesorios / Decoración",
   slideColorAccent: "Acento / Énfasis",
   slideColorBackground: "Color de texto",
   slideColorSurface: "Panel / Superficie",

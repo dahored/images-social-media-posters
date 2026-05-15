@@ -2,15 +2,13 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Plus, Layers, Calendar, SlidersHorizontal, Trash2, Copy, Image, ArrowRight } from "lucide-react";
+import { Plus, Layers, Calendar, SlidersHorizontal, Trash2, Copy, Image } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CreateContentDialog } from "@/components/ui/create-content-dialog";
 import { SlideRenderer } from "@/components/editor/SlideRenderer";
-import { TemplateGallery } from "@/components/templates/TemplateGallery";
-import { GridGallery } from "@/components/grids/GridGallery";
 import { BulkPanel } from "@/components/bulk/BulkPanel";
 import { MyPostsGridTab } from "@/components/content/MyPostsGridTab";
 import { useI18n } from "@/lib/i18n/context";
@@ -18,21 +16,17 @@ import type { Carousel, AspectRatio } from "@/types/carousel";
 import type { EffectiveBranding } from "@/types/account";
 import { computeSlideRendererProps } from "@/lib/slide-renderer-props";
 
-type TabId = "content" | "my-posts-grid" | "templates" | "grids" | "bulk";
+type TabId = "content" | "my-posts-grid" | "bulk";
 
 const TAB_TO_PATH: Record<TabId, string> = {
   content: "my-content",
   "my-posts-grid": "my-posts-grid",
-  templates: "templates",
-  grids: "grids",
   bulk: "bulk",
 };
 
 const PATH_TO_TAB: Record<string, TabId> = {
   "my-content": "content",
   "my-posts-grid": "my-posts-grid",
-  templates: "templates",
-  grids: "grids",
   bulk: "bulk",
 };
 
@@ -120,7 +114,7 @@ export default function ContentPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [contentFilter, setContentFilter] = useState<"all" | "carousel" | "post">("all");
 
-  const handleCreate = useCallback(async (name: string, aspectRatio: AspectRatio, kind: "carousel" | "post" = "carousel", networkId?: string, theme?: "dark" | "light") => {
+  const handleCreate = useCallback(async (name: string, aspectRatio: AspectRatio, kind: "carousel" | "post" = "carousel", networkId?: string, theme?: "dark" | "light" | "default") => {
     const accountId = localStorage.getItem("activeAccountId") ?? undefined;
     const res = await fetch("/api/carousels", {
       method: "POST",
@@ -186,6 +180,7 @@ export default function ContentPage() {
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         onCreate={(name, aspectRatio, kind, networkId, theme) => handleCreate(name, aspectRatio, kind, networkId, theme)}
+        onBulk={() => router.push("/content/bulk")}
       />
 
       <main className="flex-1 overflow-y-auto">
@@ -207,7 +202,7 @@ export default function ContentPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 mb-4 border-b border-border overflow-x-auto">
-            {(["content", "my-posts-grid", "templates", "grids", "bulk"] as const).map((tab) => (
+            {(["content", "my-posts-grid", "bulk"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => navigateTab(tab)}
@@ -219,8 +214,6 @@ export default function ContentPage() {
               >
                 {tab === "content" ? t("myContent")
                   : tab === "my-posts-grid" ? t("myPostsGrid")
-                  : tab === "templates" ? t("templates")
-                  : tab === "grids" ? t("grids")
                   : t("bulk")}
               </button>
             ))}
@@ -245,11 +238,7 @@ export default function ContentPage() {
             </div>
           )}
 
-          {activeTab === "templates" ? (
-            <TemplateGallery />
-          ) : activeTab === "grids" ? (
-            <GridGallery />
-          ) : activeTab === "bulk" ? (
+          {activeTab === "bulk" ? (
             <BulkPanel />
           ) : activeTab === "my-posts-grid" ? (
             <MyPostsGridTab carousels={carousels} loading={loading} reloadKey={reloadKey} getSlideRendererProps={getSlideRendererProps} onCarouselsDeleted={(ids) => setCarousels((prev) => prev.filter((c) => !ids.includes(c.id)))} />

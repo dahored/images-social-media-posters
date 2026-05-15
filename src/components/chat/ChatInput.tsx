@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Send, Square, Moon, Sun } from "lucide-react";
+import { Send, Square, Moon, Sun, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/context";
 import type { AspectRatio } from "@/types/carousel";
@@ -15,8 +15,8 @@ interface ChatInputProps {
   textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
   onStop?: () => void;
   isPost?: boolean;
-  theme?: "dark" | "light";
-  onThemeChange?: (theme: "dark" | "light") => void;
+  theme?: "dark" | "light" | "default";
+  onThemeChange?: (theme: "dark" | "light" | "default") => void;
   aspectRatio?: AspectRatio;
   onAspectRatioChange?: (ratio: AspectRatio) => void;
 }
@@ -59,7 +59,7 @@ export function ChatInput({ onSend, isStreaming, disabled, textareaRef: external
   return (
     <div className="border-t border-border p-3">
       {(onThemeChange || onAspectRatioChange) && (
-        <div className="flex items-center gap-3 mb-2">
+        <div className="flex flex-col gap-1.5 mb-2">
           {onAspectRatioChange && (
             <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-md">
               {RATIOS.map((r) => (
@@ -78,9 +78,18 @@ export function ChatInput({ onSend, isStreaming, disabled, textareaRef: external
           {onThemeChange && (
             <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-md">
               <button
+                onClick={() => onThemeChange("default")}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                  (theme ?? "default") === "default" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Sparkles className="h-2.5 w-2.5" />
+                {t("themeDefault")}
+              </button>
+              <button
                 onClick={() => onThemeChange("dark")}
                 className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                  (theme ?? "dark") === "dark" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  (theme ?? "default") === "dark" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <Moon className="h-2.5 w-2.5" />
@@ -89,7 +98,7 @@ export function ChatInput({ onSend, isStreaming, disabled, textareaRef: external
               <button
                 onClick={() => onThemeChange("light")}
                 className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                  (theme ?? "dark") === "light" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  (theme ?? "default") === "light" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <Sun className="h-2.5 w-2.5" />

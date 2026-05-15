@@ -22,7 +22,6 @@ interface FullscreenPreviewProps {
   logoConfig?: LogoConfig;
   colorSubstitution?: ColorSubstitution;
   fontSubstitution?: FontSubstitution;
-  customBackground?: string;
   accentOverride?: string;
 }
 
@@ -37,7 +36,6 @@ export function FullscreenPreview({
   logoConfig,
   colorSubstitution,
   fontSubstitution,
-  customBackground,
   accentOverride,
 }: FullscreenPreviewProps) {
   const { t } = useI18n();
@@ -46,7 +44,6 @@ export function FullscreenPreview({
   const resolvedLogoConfig      = activeSlideProps?.logoConfig      ?? logoConfig;
   const resolvedColorSub        = activeSlideProps?.colorSubstitution ?? colorSubstitution;
   const resolvedFontSub         = activeSlideProps?.fontSubstitution  ?? fontSubstitution;
-  const resolvedCustomBg        = activeSlideProps?.customBackground  ?? customBackground;
   const resolvedAccentOverride  = activeSlideProps?.accentOverride    ?? accentOverride;
 
   const handleKeyDown = useCallback(
@@ -101,7 +98,6 @@ export function FullscreenPreview({
               logoConfig={resolvedLogoConfig}
               colorSubstitution={resolvedColorSub}
               fontSubstitution={resolvedFontSub}
-              customBackground={resolvedCustomBg}
               accentOverride={resolvedAccentOverride}
             />
           )}

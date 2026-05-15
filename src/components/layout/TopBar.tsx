@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, Settings, Layers, Building2, Globe, Send, CalendarDays, LayoutDashboard, BotMessageSquare } from "lucide-react";
+import { ArrowLeft, Settings, Layers, Building2, Globe, Send, CalendarDays, LayoutDashboard, BotMessageSquare, LayoutTemplate } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AccountSelector } from "@/components/brand/AccountSelector";
 import { useI18n, type Locale } from "@/lib/i18n/context";
@@ -122,8 +122,10 @@ function MainNav() {
   const pathname = usePathname();
   const { t } = useI18n();
   const isCalendar = pathname?.startsWith("/calendar");
+  const isTemplates = pathname?.startsWith("/templates");
   const navItems = [
-    { href: "/content/my-content", label: t("postsNav"), icon: LayoutDashboard, active: !isCalendar },
+    { href: "/content/my-content", label: t("postsNav"), icon: LayoutDashboard, active: !isCalendar && !isTemplates },
+    { href: "/templates/plantillas", label: t("templates"), icon: LayoutTemplate, active: isTemplates },
     { href: "/calendar", label: t("calendarNav"), icon: CalendarDays, active: isCalendar },
   ];
   return (

@@ -45,18 +45,25 @@ export function MyPostsGridTab({ carousels, loading, reloadKey, getSlideRenderer
   const gridById = new Map(grids.map((g) => [g.id, g]));
   const bulkCarousels = carousels.filter((c) => !!c.sourceGridId);
 
-  // Build per-grid groups
-  const gridGroupMap = new Map<string, { grid: Grid | null; items: Carousel[] }>();
+  // Group by bulkRunId (one unique group per generation run).
+  // Carousels without bulkRunId (created before this feature) fall back to sourceGridId.
+  const runGroupMap = new Map<string, { runId: string; grid: Grid | null; items: Carousel[]; createdAt: string }>();
   for (const c of bulkCarousels) {
-    const gid = c.sourceGridId!;
-    if (!gridGroupMap.has(gid)) gridGroupMap.set(gid, { grid: gridById.get(gid) ?? null, items: [] });
-    gridGroupMap.get(gid)!.items.push(c);
+    const runId = c.bulkRunId ?? c.sourceGridId!;
+    if (!runGroupMap.has(runId)) {
+      runGroupMap.set(runId, {
+        runId,
+        grid: gridById.get(c.sourceGridId!) ?? null,
+        items: [],
+        createdAt: c.createdAt,
+      });
+    }
+    runGroupMap.get(runId)!.items.push(c);
   }
 
-  // Sort by grid.createdAt most recent first
-  const sortedGroups = [...gridGroupMap.entries()]
-    .sort(([, a], [, b]) => new Date(b.grid?.createdAt ?? 0).getTime() - new Date(a.grid?.createdAt ?? 0).getTime())
-    .map(([gridId, g]) => ({ gridId, ...g }));
+  // Sort by first carousel createdAt, most recent first
+  const sortedGroups = [...runGroupMap.values()]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   function getDateKey(dateStr: string): string {
     const d = new Date(dateStr);
@@ -68,12 +75,12 @@ export function MyPostsGridTab({ carousels, loading, reloadKey, getSlideRenderer
     return d.toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
   }
 
-  // Group sorted grids by creation date
-  type GridGroup = { gridId: string; grid: Grid | null; items: Carousel[] };
-  const dateGroups: { label: string; key: string; groups: GridGroup[] }[] = [];
+  // Group sorted runs by their first carousel's creation date
+  type RunGroup = { runId: string; grid: Grid | null; items: Carousel[]; createdAt: string };
+  const dateGroups: { label: string; key: string; groups: RunGroup[] }[] = [];
   const seenDate = new Map<string, number>();
   for (const g of sortedGroups) {
-    const key = getDateKey(g.grid?.createdAt ?? "");
+    const key = getDateKey(g.createdAt);
     if (!seenDate.has(key)) {
       seenDate.set(key, dateGroups.length);
       const label = key === "__today__" ? t("today") : key === "__yesterday__" ? t("yesterday") : key;
@@ -82,10 +89,9 @@ export function MyPostsGridTab({ carousels, loading, reloadKey, getSlideRenderer
     dateGroups[seenDate.get(key)!].groups.push(g);
   }
 
-  // Legacy flat list for empty check
   const groups = sortedGroups;
 
-  const handleDeleteGroup = (e: React.MouseEvent, _gridId: string, gridName: string, items: Carousel[]) => {
+  const handleDeleteGroup = (e: React.MouseEvent, _runId: string, gridName: string, items: Carousel[]) => {
     e.stopPropagation();
     setConfirmState({
       open: true,
@@ -143,21 +149,21 @@ export function MyPostsGridTab({ carousels, loading, reloadKey, getSlideRenderer
               {label}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {dateGroupItems.map(({ grid, gridId, items }) => {
+              {dateGroupItems.map(({ runId, grid, items, createdAt }) => {
                 const preview = items.slice(0, 9);
                 const cols = 3;
                 const rows = Math.min(3, Math.ceil(Math.max(preview.length, 1) / cols));
                 const slots = cols * rows;
-                const gridName = grid?.name ?? gridId;
+                const gridName = grid?.name ?? runId;
                 return (
                   <div
-                    key={gridId}
+                    key={runId}
                     className="relative rounded-xl border border-border bg-surface p-4 hover:border-accent hover:shadow-md transition-all group cursor-pointer"
-                    onClick={() => router.push(`/content/my-posts-grid/${gridId}`)}
+                    onClick={() => router.push(`/content/my-posts-grid/${runId}`)}
                   >
                     {/* Delete button */}
                     <button
-                      onClick={(e) => handleDeleteGroup(e, gridId, gridName, items)}
+                      onClick={(e) => handleDeleteGroup(e, runId, gridName, items)}
                       className="absolute top-3 right-3 h-7 w-7 rounded-lg flex items-center justify-center bg-white border border-border hover:bg-destructive hover:text-white hover:border-destructive opacity-0 group-hover:opacity-100 transition-all z-10"
                       aria-label="Eliminar"
                     >
@@ -193,9 +199,9 @@ export function MyPostsGridTab({ carousels, loading, reloadKey, getSlideRenderer
                     <h3 className="font-semibold text-sm truncate pr-6">{gridName}</h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {items.length} {t(items.length === 1 ? "post" : "posts")}
-                      {grid?.createdAt && (
+                      {createdAt && (
                         <span className="ml-2 opacity-60">
-                          · {new Date(grid.createdAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                          · {new Date(createdAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
                         </span>
                       )}
                     </p>

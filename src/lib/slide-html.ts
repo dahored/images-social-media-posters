@@ -31,25 +31,83 @@ function hexToRgb(hex: string): [number, number, number] | null {
   return [parseInt(clean.slice(0, 2), 16), parseInt(clean.slice(2, 4), 16), parseInt(clean.slice(4, 6), 16)];
 }
 
+function colorDistance(a: [number, number, number], b: [number, number, number]): number {
+  const dr = a[0] - b[0], dg = a[1] - b[1], db = a[2] - b[2];
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
 /**
  * Replaces brand colors in `subs.from` with counterparts in `subs.to`.
  *
  * Two-pass, cascade-free approach:
- *  Pass 1 — hex values (#rrggbb) in a single regex so swapped colors don't overwrite each other.
+ *  Pass 1 — hex values (#rrggbb). Exact matches first; then a fuzzy scan of all hex colors in the
+ *            HTML finds any color within FUZZY_THRESHOLD RGB-distance of a `from` palette entry
+ *            and maps it to the corresponding `to` color. This handles slides where the AI wrote
+ *            a near-match approximation of the brand palette hex.
  *  Pass 2 — rgba/rgb(...) using the same RGB components, preserving the alpha channel.
  *            This handles decorative uses like `rgba(255,255,255,0.04)` that wouldn't match hex.
  */
-function applyColorSubstitution(html: string, subs: ColorSubstitution): string {
-  const hexMap = new Map<string, string>();
-  const rgbPairs: Array<{ fromRgb: [number, number, number]; toRgb: [number, number, number] }> = [];
+const FUZZY_THRESHOLD = 30; // Max Euclidean RGB distance to count as "same brand color"
 
+function applyColorSubstitution(html: string, subs: ColorSubstitution): string {
+  // Build exact substitution pairs.
+  // When the accent from-color is identical to another slot's from-color (e.g. accent=#ffffff
+  // AND background=#ffffff), we can't safely substitute accent by hex — every white text element
+  // would incorrectly turn into the accent color. Skip accent in that case; accent elements are
+  // handled via accentOverride CSS class injection instead.
+  // Other slots (background, primary…) are always kept — e.g. background #ffffff → #16213e is
+  // essential for light-mode slides so white text becomes dark on the light background.
+  type Pair = { fromHex: string; fromRgb: [number, number, number]; toHex: string; toRgb: [number, number, number] | null };
+  const fromAccentHex = subs.from.accent?.toLowerCase();
+  const accentIsAmbiguous = fromAccentHex
+    ? Object.entries(subs.from).some(([k, v]) => k !== "accent" && v?.toLowerCase() === fromAccentHex)
+    : false;
+
+  const pairs: Pair[] = [];
   for (const [key, toHex] of Object.entries(subs.to)) {
     const fromHex = subs.from[key];
     if (!fromHex || fromHex.toLowerCase() === toHex.toLowerCase()) continue;
-    hexMap.set(fromHex.toLowerCase(), toHex.toLowerCase());
+    if (key === "accent" && accentIsAmbiguous) continue; // handled via accentOverride CSS
     const fromRgb = hexToRgb(fromHex);
-    const toRgb = hexToRgb(toHex);
-    if (fromRgb && toRgb) rgbPairs.push({ fromRgb, toRgb });
+    if (!fromRgb) continue;
+    pairs.push({ fromHex: fromHex.toLowerCase(), fromRgb, toHex: toHex.toLowerCase(), toRgb: hexToRgb(toHex) });
+  }
+
+  if (pairs.length === 0) return html;
+
+  // hexMap: htmlColor → replacementColor (starts with exact matches)
+  const hexMap = new Map<string, string>(pairs.map((p) => [p.fromHex, p.toHex]));
+
+  // rgbPairs accumulates both exact and fuzzy pairs for Pass 2
+  const rgbPairs: Array<{ fromRgb: [number, number, number]; toRgb: [number, number, number] }> = pairs
+    .filter((p) => p.toRgb !== null)
+    .map((p) => ({ fromRgb: p.fromRgb, toRgb: p.toRgb! }));
+
+  // Fuzzy scan: find all unique hex colors in the HTML that are not already mapped,
+  // then check if they are close to any from-palette color.
+  const htmlHexRegex = /#([0-9a-fA-F]{6})\b/gi;
+  const seen = new Set<string>();
+  let m: RegExpExecArray | null;
+  while ((m = htmlHexRegex.exec(html)) !== null) {
+    const h = `#${m[1].toLowerCase()}`;
+    if (seen.has(h) || hexMap.has(h)) continue;
+    seen.add(h);
+    const hRgb = hexToRgb(h);
+    if (!hRgb) continue;
+
+    let nearest: Pair | null = null;
+    let nearestDist = FUZZY_THRESHOLD + 1;
+    for (const pair of pairs) {
+      const d = colorDistance(hRgb, pair.fromRgb);
+      if (d <= FUZZY_THRESHOLD && d < nearestDist) { nearestDist = d; nearest = pair; }
+    }
+
+    if (nearest && nearest.toHex !== h) {
+      hexMap.set(h, nearest.toHex);
+      if (nearest.toRgb && !rgbPairs.some((p) => p.fromRgb[0] === hRgb[0] && p.fromRgb[1] === hRgb[1] && p.fromRgb[2] === hRgb[2])) {
+        rgbPairs.push({ fromRgb: hRgb, toRgb: nearest.toRgb });
+      }
+    }
   }
 
   if (hexMap.size === 0) return html;
@@ -58,7 +116,7 @@ function applyColorSubstitution(html: string, subs: ColorSubstitution): string {
   const hexPattern = Array.from(hexMap.keys())
     .map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("|");
-  let result = html.replace(new RegExp(hexPattern, "gi"), (m) => hexMap.get(m.toLowerCase()) ?? m);
+  let result = html.replace(new RegExp(hexPattern, "gi"), (match) => hexMap.get(match.toLowerCase()) ?? match);
 
   // Pass 2: rgba/rgb replacement — different syntax from hex, so no cascade with pass 1
   if (rgbPairs.length > 0) {
@@ -66,10 +124,10 @@ function applyColorSubstitution(html: string, subs: ColorSubstitution): string {
       .map(({ fromRgb: [r, g, b] }) => `rgba?\\(\\s*${r}\\s*,\\s*${g}\\s*,\\s*${b}\\s*(?:,\\s*([^)]+))?\\)`)
       .join("|");
     result = result.replace(new RegExp(rgbaPattern, "gi"), (match) => {
-      const m = match.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([^)]+))?\s*\)/i);
-      if (!m) return match;
-      const [r, g, b] = [+m[1], +m[2], +m[3]];
-      const alpha = m[4];
+      const rm = match.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([^)]+))?\s*\)/i);
+      if (!rm) return match;
+      const [r, g, b] = [+rm[1], +rm[2], +rm[3]];
+      const alpha = rm[4];
       const rep = rgbPairs.find((p) => p.fromRgb[0] === r && p.fromRgb[1] === g && p.fromRgb[2] === b);
       if (!rep) return match;
       const [tr, tg, tb] = rep.toRgb;
@@ -205,10 +263,37 @@ export function wrapSlideHtml(
 ): string {
   const { width, height } = DIMENSIONS[aspectRatio];
 
+  // Strip background/background-color props from an inline style string, preserving the rest.
+  const clearBgFromStyle = (style: string) =>
+    style.split(";").map((s: string) => s.trim()).filter((s: string) => s && !/^background/i.test(s)).join(";");
+
+  // Patch only the root div's background-color inline style to the target hex.
+  const patchRootBackground = (html: string, targetHex: string): string => {
+    const patched = html.replace(
+      /(<div\b[^>]*\bstyle=")([^"]*)(")/,
+      (_, pre, style, close) => {
+        const stripped = clearBgFromStyle(style);
+        return `${pre}background:${targetHex};background-color:${targetHex}${stripped ? ";" + stripped : ""}${close}`;
+      }
+    );
+    return patched;
+  };
+
   // Apply color substitution BEFORE any other processing
   let processedHtml = slideHtml;
   if (options?.colorSubstitution) {
     processedHtml = applyColorSubstitution(processedHtml, options.colorSubstitution);
+
+    // After substitution, anchor the root div background to to.primary.
+    // Role-based substitution can mis-map the root background when the AI used a secondary/accent
+    // color as the slide background — this makes "Fondo del slide" always control the background.
+    const targetPrimary = options.colorSubstitution.to.primary?.toLowerCase();
+    if (targetPrimary) {
+      const rootBgAfter = detectSlideRootBackground(processedHtml)?.toLowerCase();
+      if (rootBgAfter && rootBgAfter !== targetPrimary) {
+        processedHtml = patchRootBackground(processedHtml, targetPrimary);
+      }
+    }
   }
 
   if (options?.fontSubstitution?.heading) processedHtml = applyFontSub(processedHtml, options.fontSubstitution.heading);
@@ -223,13 +308,36 @@ export function wrapSlideHtml(
   // This takes priority over string-replaced inline styles when both heading and body share the same source font.
   const headingTarget = options?.fontSubstitution?.heading?.to ?? options?.fontRoles?.heading;
   const bodyTarget    = options?.fontSubstitution?.body?.to    ?? options?.fontRoles?.body;
-  const accentCss = options?.accentOverride
-    ? `.slide-accent { color: ${options.accentOverride} !important; }`
+  const sub = options?.colorSubstitution;
+
+  // Inject text color for all slide-role text elements. Works even when AI hardcoded
+  // off-palette colors. Exclude slide-secondary/slide-surface (decoration, not text).
+  const textColorCss = sub?.to.background
+    ? `[class*="slide-"]:not(.slide-secondary):not(.slide-surface):not(.slide-accent) { color: ${sub.to.background} !important; }`
+    : "";
+
+  // Decorative elements (slide-secondary) and surface/card backgrounds (slide-surface)
+  // must reflect the palette regardless of what color the AI originally hardcoded.
+  const secondaryCss = sub?.to.secondary
+    ? `.slide-secondary { background-color: ${sub.to.secondary} !important; fill: ${sub.to.secondary} !important; border-color: ${sub.to.secondary} !important; }`
+    : "";
+  const surfaceCss = sub?.to.surface
+    ? `.slide-surface { background-color: ${sub.to.surface} !important; border-color: ${sub.to.surface} !important; }`
+    : "";
+
+  // Accent: text color only. background-color must NOT be forced here — slide-accent is used
+  // on text spans and block elements alike; forcing bg would create colored rectangles over text.
+  const accentColor = options?.accentOverride ?? sub?.to.accent;
+  const accentCss = accentColor
+    ? `.slide-accent { color: ${accentColor} !important; }`
     : "";
 
   const fontRoleCss = [
     headingTarget ? `.slide-title { font-family: '${headingTarget}', 'Noto Color Emoji', sans-serif !important; }` : "",
     bodyTarget    ? `.slide-body  { font-family: '${bodyTarget}', 'Noto Color Emoji', sans-serif !important; }` : "",
+    textColorCss,
+    secondaryCss,
+    surfaceCss,
     accentCss,
   ].filter(Boolean).join("\n    ");
 
@@ -305,21 +413,11 @@ export function wrapSlideHtml(
   // CSS !important alone doesn't beat inline shorthand backgrounds in sandboxed iframes.
   if (options?.customBackground) {
     const bg = options.customBackground;
-    const clearBg = (style: string) =>
-      style.split(";").map((s: string) => s.trim()).filter((s: string) => s && !/^background/i.test(s)).join(";");
-
-    // Pass 1: root div — set custom background
-    const patched = cleanSlideHtml.replace(
-      /(<div\b[^>]*\bstyle=")([^"]*)(")/,
-      (_, pre, style, close) => {
-        const stripped = clearBg(style);
-        return `${pre}background:${bg};background-color:${bg}${stripped ? ";" + stripped : ""}${close}`;
-      }
-    );
+    // Pass 1: root div
+    const patched = patchRootBackground(cleanSlideHtml, bg);
     if (patched !== cleanSlideHtml) cleanSlideHtml = patched;
 
     // Pass 2: full-screen overlay divs (position:absolute + top:0 + left:0 + right:0 pattern).
-    // AI slides commonly use these for gradient backgrounds layered on top of the root div.
     cleanSlideHtml = cleanSlideHtml.replace(
       /<div[^>]*\bstyle="([^"]*)"[^>]*>/gi,
       (match, style) => {
@@ -328,7 +426,7 @@ export function wrapSlideHtml(
         const hasLeft0 = /\bleft\s*:\s*0/.test(style)  || /\binset\s*:\s*0/.test(style);
         const hasRight0 = /\bright\s*:\s*0/.test(style) || /\binset\s*:\s*0/.test(style);
         if (!hasTop0 || !hasLeft0 || !hasRight0) return match;
-        const cleared = clearBg(style);
+        const cleared = clearBgFromStyle(style);
         return match.replace(/\bstyle="[^"]*"/, `style="${cleared}"`);
       }
     );
@@ -350,6 +448,7 @@ export function wrapSlideHtml(
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: ${width}px; height: ${height}px; overflow: hidden; position: relative; }
+    body { font-family: 'Noto Sans Symbols 2', 'Noto Color Emoji', sans-serif; }
     ${fontRoleCss}
   </style>
 </head>

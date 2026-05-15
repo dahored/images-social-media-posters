@@ -41,14 +41,21 @@ export default function PostsGridDetailPage() {
     if (!accountId) { setLoading(false); return; }
 
     Promise.all([
-      fetch(`/api/grids/${gridId}`).then((r) => r.json()).catch(() => null),
       fetch(`/api/carousels?accountId=${accountId}`).then((r) => r.json()).catch(() => ({ carousels: [] })),
       fetch(`/api/accounts/${accountId}`).then((r) => r.json()).catch(() => null),
-    ]).then(([gridData, carouselData, accountData]) => {
-      setGrid(gridData?.grid ?? null);
+    ]).then(async ([carouselData, accountData]) => {
       const all: Carousel[] = carouselData?.carousels ?? [];
-      setCarousels(all.filter((c) => c.sourceGridId === gridId));
+      // gridId param may be a bulkRunId (new) or a legacy sourceGridId
+      const runCarousels = all.filter((c) => c.bulkRunId === gridId || (!c.bulkRunId && c.sourceGridId === gridId));
+      setCarousels(runCarousels);
       setBranding(accountData?.effectiveBranding ?? null);
+
+      // Resolve the actual grid using sourceGridId from any carousel in this run
+      const sourceGridId = runCarousels[0]?.sourceGridId;
+      if (sourceGridId) {
+        const gridData = await fetch(`/api/grids/${sourceGridId}`).then((r) => r.json()).catch(() => null);
+        setGrid(gridData?.grid ?? null);
+      }
       setReloadKey((k) => k + 1);
       setLoading(false);
     });

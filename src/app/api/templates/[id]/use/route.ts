@@ -4,13 +4,13 @@ import { createCarousel, addSlide, updateCarousel, getCarousel } from "@/lib/car
 import { detectSlideRootBackground } from "@/lib/slide-html";
 import type { CarouselBrandingOverride } from "@/types/carousel";
 
-function detectThemeFromHtml(html: string | undefined): "dark" | "light" {
+function detectThemeFromHtml(html: string | undefined): "default" | "light" {
   const bg = detectSlideRootBackground(html ?? "");
-  if (!bg) return "dark";
+  if (!bg) return "default";
   const r = parseInt(bg.slice(1, 3), 16);
   const g = parseInt(bg.slice(3, 5), 16);
   const b = parseInt(bg.slice(5, 7), 16);
-  return 0.299 * r + 0.587 * g + 0.114 * b > 128 ? "light" : "dark";
+  return 0.299 * r + 0.587 * g + 0.114 * b > 128 ? "light" : "default";
 }
 
 export async function POST(

@@ -27,12 +27,19 @@ export interface AccountsData {
 export interface EffectiveBranding {
   name: string;
   colors: BrandColors;
+  colorsDark?: BrandColors;
   colorsLight?: BrandColors;
   fonts: BrandFonts;
+  fontsDark?: BrandFonts;
+  fontsLight?: BrandFonts;
   logoPath: string | null;
   logoPathDark?: string | null;
   logoPathLight?: string | null;
   logoPosition?: LogoPosition;
   logoHeight?: number;
+  logoPositionDark?: LogoPosition;
+  logoHeightDark?: number;
+  logoPositionLight?: LogoPosition;
+  logoHeightLight?: number;
   styleKeywords: string[];
 }

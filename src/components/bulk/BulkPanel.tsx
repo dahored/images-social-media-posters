@@ -41,6 +41,7 @@ export function BulkPanel() {
   const [previewing, setPreviewing] = useState(false);
   const [cellProgress, setCellProgress] = useState<CellProgress[]>([]);
   const [generatedCarousels, setGeneratedCarousels] = useState<Array<{ id: string; name: string }>>([]);
+  const [bulkRunId, setBulkRunId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Array<{ position: number; error: string }>>([]);
   const [copied, setCopied] = useState(false);
 
@@ -142,6 +143,7 @@ export function BulkPanel() {
           if (planCells?.length) {
             setCellProgress(planCells.map((c) => ({ ...c, topic: "", status: "pending" })));
           }
+          if (data.bulkRunId) setBulkRunId(data.bulkRunId as string);
         } else if (event === "progress") {
           const { position, status, carousel, error } = data as {
             position: number;
@@ -180,6 +182,7 @@ export function BulkPanel() {
     setPreview(null);
     setCellProgress([]);
     setGeneratedCarousels([]);
+    setBulkRunId(null);
     setErrors([]);
   };
 
@@ -578,7 +581,7 @@ export function BulkPanel() {
         )}
         <div className="flex justify-center gap-3">
           <Button variant="outline" size="sm" onClick={reset}>{t("bulkStartOver")}</Button>
-          <Button variant="accent" size="sm" onClick={() => router.push(selectedGrid ? `/content/my-posts-grid/${selectedGrid.id}` : "/content/my-posts-grid")}>{t("bulkViewPostGrid")}</Button>
+          <Button variant="accent" size="sm" onClick={() => router.push(bulkRunId ? `/content/my-posts-grid/${bulkRunId}` : selectedGrid ? `/content/my-posts-grid/${selectedGrid.id}` : "/content/my-posts-grid")}>{t("bulkViewPostGrid")}</Button>
         </div>
       </div>
     );

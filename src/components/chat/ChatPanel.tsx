@@ -27,10 +27,10 @@ interface ChatPanelProps {
   /** Bump the nonce to fire `silentMessage` to the AI without showing it as a user message in the transcript. */
   silentSend?: { message: string; nonce: number };
   // Current values from the carousel (used to initialize local state)
-  theme?: "dark" | "light";
+  theme?: "dark" | "light" | "default";
   aspectRatio?: AspectRatio;
   // Called only when the user sends a message — not on every button click
-  onCommitChanges?: (ratio: AspectRatio, theme: "dark" | "light") => Promise<void>;
+  onCommitChanges?: (ratio: AspectRatio, theme: "dark" | "light" | "default") => Promise<void>;
 }
 
 export function ChatPanel({
@@ -58,7 +58,7 @@ export function ChatPanel({
 
   // Local pending state — buttons update these, nothing changes in preview until send
   const [pendingRatio, setPendingRatio] = useState<AspectRatio>(aspectRatio ?? "4:5");
-  const [pendingTheme, setPendingTheme] = useState<"dark" | "light">(theme ?? "dark");
+  const [pendingTheme, setPendingTheme] = useState<"dark" | "light" | "default">(theme ?? "default");
 
   // Sync if parent initializes async (carousel loads after mount)
   useEffect(() => { if (aspectRatio) setPendingRatio(aspectRatio); }, [aspectRatio]);

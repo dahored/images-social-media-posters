@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Layers, Image, X, ArrowLeft, Plus, Bookmark, Moon, Sun } from "lucide-react";
+import { Layers, Image, X, ArrowLeft, Plus, Bookmark, Moon, Sun, Sparkles, LayoutGrid } from "lucide-react";
 import { Button } from "./button";
 import { Input } from "./input";
 import { AspectRatioSelector } from "@/components/editor/AspectRatioSelector";
@@ -17,12 +17,13 @@ import type { Template } from "@/types/template";
 interface CreateContentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (name: string, aspectRatio: AspectRatio, kind: ContentKind, networkId?: string, theme?: "dark" | "light") => void;
+  onCreate: (name: string, aspectRatio: AspectRatio, kind: ContentKind, networkId?: string, theme?: "dark" | "light" | "default") => void;
+  onBulk?: () => void;
 }
 
 type Step = "kind" | "source" | "blank" | "template";
 
-export function CreateContentDialog({ open, onOpenChange, onCreate }: CreateContentDialogProps) {
+export function CreateContentDialog({ open, onOpenChange, onCreate, onBulk }: CreateContentDialogProps) {
   const { t } = useI18n();
   const router = useRouter();
   const branding = useBranding();
@@ -30,7 +31,7 @@ export function CreateContentDialog({ open, onOpenChange, onCreate }: CreateCont
   const [kind, setKind] = useState<ContentKind>("carousel");
   const [name, setName] = useState("");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("4:5");
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light" | "default">("default");
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
@@ -106,10 +107,10 @@ export function CreateContentDialog({ open, onOpenChange, onCreate }: CreateCont
 
           {/* Step 1: kind */}
           {step === "kind" && (
-            <div className="p-6 grid grid-cols-2 gap-3">
+            <div className="p-6 grid grid-cols-3 gap-3">
               <button
                 onClick={() => chooseKind("post")}
-                className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-border hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer group"
+                className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-border hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer group"
               >
                 <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
                   <Image className="h-6 w-6 text-accent" />
@@ -119,9 +120,9 @@ export function CreateContentDialog({ open, onOpenChange, onCreate }: CreateCont
                   <p className="text-xs text-muted-foreground mt-0.5">{t("singleImage")}</p>
                 </div>
               </button>
-               <button
+              <button
                 onClick={() => chooseKind("carousel")}
-                className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-border hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer group"
+                className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-border hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer group"
               >
                 <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
                   <Layers className="h-6 w-6 text-accent" />
@@ -129,6 +130,18 @@ export function CreateContentDialog({ open, onOpenChange, onCreate }: CreateCont
                 <div className="text-center">
                   <p className="font-semibold text-sm">{t("carousel")}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{t("multipleSlides")}</p>
+                </div>
+              </button>
+              <button
+                onClick={() => { onOpenChange(false); onBulk?.(); }}
+                className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-border hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer group"
+              >
+                <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
+                  <LayoutGrid className="h-6 w-6 text-accent" />
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-sm">{t("bulk")}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t("bulkSubtitle")}</p>
                 </div>
               </button>
             </div>
@@ -185,6 +198,15 @@ export function CreateContentDialog({ open, onOpenChange, onCreate }: CreateCont
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t("theme")}</label>
                   <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-md h-9">
+                    <button
+                      onClick={() => setTheme("default")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer ${
+                        theme === "default" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {t("themeDefault")}
+                    </button>
                     <button
                       onClick={() => setTheme("dark")}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer ${

@@ -20,15 +20,9 @@ import { SlideRenderer } from "./SlideRenderer";
 import { useI18n } from "@/lib/i18n/context";
 import type { Slide, AspectRatio } from "@/types/carousel";
 import type { LogoConfig, ColorSubstitution, FontSubstitution } from "@/lib/slide-html";
+import type { SlideRendererProps as SlideSubstitution } from "@/lib/slide-renderer-props";
 import { DIMENSIONS, MAX_SLIDES } from "@/types/carousel";
 import { cn } from "@/lib/utils";
-
-interface SlideSubstitution {
-  colorSubstitution?: ColorSubstitution;
-  fontSubstitution?: FontSubstitution;
-  customBackground?: string;
-  accentOverride?: string;
-}
 
 interface SlideFilmstripProps {
   slides: Slide[];
@@ -253,10 +247,9 @@ export function SlideFilmstrip({
                 onSelect={() => onActiveChange(index)}
                 onDelete={onDeleteSlide ? () => onDeleteSlide(slide.id) : undefined}
                 onUndo={onUndoSlide ? () => onUndoSlide(slide.id) : undefined}
-                logoConfig={slideLogoConfigs?.[slide.id] ?? logoConfig}
+                logoConfig={slideSubstitutions?.[slide.id]?.logoConfig ?? slideLogoConfigs?.[slide.id] ?? logoConfig}
                 colorSubstitution={slideSubstitutions?.[slide.id]?.colorSubstitution ?? colorSubstitution}
                 fontSubstitution={slideSubstitutions?.[slide.id]?.fontSubstitution ?? fontSubstitution}
-                customBackground={slideSubstitutions?.[slide.id]?.customBackground}
                 accentOverride={slideSubstitutions?.[slide.id]?.accentOverride}
               />
             ))}

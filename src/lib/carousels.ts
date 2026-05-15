@@ -72,7 +72,7 @@ export async function createCarousel(
 
 export async function updateCarousel(
   id: string,
-  updates: Partial<Pick<Carousel, "name" | "aspectRatio" | "tags" | "chatSessionId" | "caption" | "hashtags" | "publishHistory" | "brandingOverride" | "templateId" | "templateLocked" | "sourceGridId" | "scheduledAt">>
+  updates: Partial<Pick<Carousel, "name" | "aspectRatio" | "tags" | "chatSessionId" | "caption" | "hashtags" | "publishHistory" | "brandingOverride" | "templateId" | "templateLocked" | "sourceGridId" | "bulkRunId" | "scheduledAt" | "generationPalette">>
 ): Promise<Carousel | null> {
   const data = await load();
   const idx = data.carousels.findIndex((c) => c.id === id);
