@@ -254,6 +254,8 @@ export function wrapSlideHtml(
     fontSubstitution?: FontSubstitution;
     /** Effective heading/body font names for CSS class injection only — no string replacement. Use when preprocessSlideHtml already applied string subs. */
     fontRoles?: { heading?: string; body?: string };
+    /** When true, skip colorSubstitution string replacement (already applied upstream) but still generate CSS injection rules and root-bg anchoring. */
+    skipStringReplacement?: boolean;
     customBackground?: string;
     /** Override accent color for elements with class="slide-accent" */
     accentOverride?: string;
@@ -279,9 +281,10 @@ export function wrapSlideHtml(
     return patched;
   };
 
-  // Apply color substitution BEFORE any other processing
+  // Apply color substitution BEFORE any other processing.
+  // Skip when skipStringReplacement=true (caller already ran preprocessSlideHtml).
   let processedHtml = slideHtml;
-  if (options?.colorSubstitution) {
+  if (options?.colorSubstitution && !options.skipStringReplacement) {
     processedHtml = applyColorSubstitution(processedHtml, options.colorSubstitution);
 
     // After substitution, anchor the root div background to to.primary.

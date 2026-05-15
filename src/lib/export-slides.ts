@@ -255,12 +255,13 @@ export async function exportSlide(
     : logoConfig;
 
   // Build self-contained HTML. String substitution already applied via preprocessSlideHtml,
-  // but wrapSlideHtml still needs colorSubstitution to generate CSS class injection rules
-  // (textColorCss, secondaryCss, accentCss) that target slide-* role classes.
+  // so skipStringReplacement=true to avoid double-substitution (fuzzy matcher would corrupt
+  // already-remapped colors). colorSubstitution is still needed for CSS class injection rules.
   const fullHtml = wrapSlideHtml(inlinedHtml, aspectRatio, {
     inlineFontCss: inlinedFontCss + notoEmojiCss,
     logoConfig: inlinedLogoConfig,
     colorSubstitution,
+    skipStringReplacement: true,
     fontRoles: fontSubstitution
       ? { heading: fontSubstitution.heading?.to, body: fontSubstitution.body?.to }
       : undefined,
