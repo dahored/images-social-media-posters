@@ -331,14 +331,18 @@ Each slide is BODY-LEVEL HTML only. No <!DOCTYPE>, <html>, <head>, or <body> tag
    - **Test mentally**: if a decorative shape extends into the area where text sits, that text would be obscured unless the text has a higher z-index. Don't rely on luck — ALWAYS layer content above decorations.
 
 11. **slide-secondary on decorative shapes — MANDATORY**: Every div/span/svg used as a decorative or accessory element MUST have class="slide-secondary". This is how the theming system remaps those elements to the correct color when the user switches themes. If you omit it, the shape keeps its hardcoded color and breaks the theme.
-    Examples:
+    ⚠️ **NEVER create large plain solid rectangles or squares as decorations** — they block content and look broken. Use small dots, grids of tiny squares, thin lines, small circles, borders, or SVG shapes instead.
     \`\`\`html
-    <!-- Pixel grid overlay -->
-    <div class="slide-secondary" style="position:absolute;top:60px;right:60px;opacity:0.3;background:${activePalette.secondary};width:80px;height:80px"></div>
-    <!-- Decorative circle -->
-    <div class="slide-secondary" style="position:absolute;bottom:120px;left:-20px;width:160px;height:160px;border-radius:50%;background:${activePalette.secondary};opacity:0.15"></div>
+    <!-- Dot grid pattern (preferred) -->
+    <div class="slide-secondary" style="position:absolute;top:40px;right:40px;display:grid;grid-template-columns:repeat(5,8px);gap:6px;opacity:0.25">
+      ${Array(25).fill('<div style="width:8px;height:8px;border-radius:1px;background:${activePalette.secondary}"></div>').join('')}
+    </div>
+    <!-- Small decorative circle accent (low opacity) -->
+    <div class="slide-secondary" style="position:absolute;bottom:100px;left:-30px;width:90px;height:90px;border-radius:50%;background:${activePalette.secondary};opacity:0.12"></div>
+    <!-- Thin decorative line -->
+    <div class="slide-secondary" style="position:absolute;top:120px;left:80px;width:60px;height:3px;border-radius:2px;background:${activePalette.secondary};opacity:0.6"></div>
     <!-- SVG decorative shape -->
-    <svg class="slide-secondary" style="position:absolute;..." fill="${activePalette.secondary}">...</svg>
+    <svg class="slide-secondary" style="position:absolute;top:30px;right:30px;opacity:0.2" width="60" height="60" viewBox="0 0 60 60" fill="${activePalette.secondary}"><circle cx="30" cy="30" r="28"/></svg>
     <!-- Info card background -->
     <div class="slide-surface" style="background:${activePalette.surface};border-radius:12px;padding:20px">...</div>
     \`\`\`

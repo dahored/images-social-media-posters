@@ -318,11 +318,16 @@ export function wrapSlideHtml(
 
   // Decorative elements (slide-secondary) and surface/card backgrounds (slide-surface)
   // must reflect the palette regardless of what color the AI originally hardcoded.
+  // slide-secondary: only remap SVG fill and borders — NOT background-color.
+  // background-color !important flattens opacity/gradients and turns shapes into solid squares.
+  // background substitution is already handled by applyColorSubstitution (string + fuzzy replacement).
   const secondaryCss = sub?.to.secondary
-    ? `.slide-secondary { background-color: ${sub.to.secondary} !important; fill: ${sub.to.secondary} !important; border-color: ${sub.to.secondary} !important; }`
+    ? `.slide-secondary { fill: ${sub.to.secondary} !important; border-color: ${sub.to.secondary} !important; }`
     : "";
+  // slide-surface: same reasoning — let applyColorSubstitution handle background-color.
+  // Only force border-color which isn't covered by string replacement.
   const surfaceCss = sub?.to.surface
-    ? `.slide-surface { background-color: ${sub.to.surface} !important; border-color: ${sub.to.surface} !important; }`
+    ? `.slide-surface { border-color: ${sub.to.surface} !important; }`
     : "";
 
   // Accent: text color only. background-color must NOT be forced here — slide-accent is used
