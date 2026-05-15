@@ -254,12 +254,13 @@ export async function exportSlide(
     ? { ...logoConfig, path: await inlineImagePath(logoConfig.path) }
     : logoConfig;
 
-  // Build self-contained HTML (substitutions already applied — don't re-apply).
-  // Pass fontRoles so wrapSlideHtml injects .slide-title / .slide-body CSS for class-based targeting.
+  // Build self-contained HTML. String substitution already applied via preprocessSlideHtml,
+  // but wrapSlideHtml still needs colorSubstitution to generate CSS class injection rules
+  // (textColorCss, secondaryCss, accentCss) that target slide-* role classes.
   const fullHtml = wrapSlideHtml(inlinedHtml, aspectRatio, {
     inlineFontCss: inlinedFontCss + notoEmojiCss,
     logoConfig: inlinedLogoConfig,
-    customBackground: customBackground,
+    colorSubstitution,
     fontRoles: fontSubstitution
       ? { heading: fontSubstitution.heading?.to, body: fontSubstitution.body?.to }
       : undefined,
