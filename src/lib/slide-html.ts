@@ -312,8 +312,11 @@ export function wrapSlideHtml(
 
   // Inject text color for all slide-role text elements. Works even when AI hardcoded
   // off-palette colors. Exclude slide-secondary/slide-surface (decoration, not text).
+  // Exclude slide-secondary (decorative shapes, no text) and slide-accent (accent controls its own color).
+  // slide-surface is NOT excluded — color: X !important only affects text, not background-color,
+  // so covering surface elements ensures card titles inside them get the correct text color.
   const textColorCss = sub?.to.background
-    ? `[class*="slide-"]:not(.slide-secondary):not(.slide-surface):not(.slide-accent) { color: ${sub.to.background} !important; }`
+    ? `[class*="slide-"]:not(.slide-secondary):not(.slide-accent) { color: ${sub.to.background} !important; }`
     : "";
 
   // Decorative elements (slide-secondary) and surface/card backgrounds (slide-surface)
